@@ -8,7 +8,12 @@
       "**/*"
     ],
     "android": {
-      "package": "com.diegocrew.kidcaretracker"
+      "package": "com.diegocrew.kidcaretracker",
+      "permissions": [
+        "android.permission.INTERNET"
+      ],
+      "minSdkVersion": 24,
+      "targetSdkVersion": 34
     },
     "extra": {
       "eas": {
