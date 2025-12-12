@@ -1,49 +1,24 @@
+
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  Modal,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  SafeAreaView,
-  ScrollView,
-  FlatList,
-} from 'react-native';
 import { Profile } from '../types';
+import { XMarkIcon } from './Icons';
 
 interface ProfileEditorProps {
   profile: Profile;
   onSave: (updatedProfile: Profile) => void;
   onClose: () => void;
-  visible: boolean;
 }
 
 const AVATAR_COLORS = [
-  '#3B82F6', // blue-400
-  '#2563EB', // blue-500
-  '#6366F1', // indigo-500
-  '#A855F7', // purple-500
-  '#EC4899', // pink-400
-  '#F43F5E', // rose-500
-  '#DC2626', // red-400
-  '#EA580C', // orange-400
-  '#D97706', // amber-400
-  '#FBBF24', // yellow-400
-  '#84CC16', // lime-500
-  '#22C55E', // green-500
-  '#10B981', // emerald-500
-  '#14B8A6', // teal-500
-  '#06B6D4', // cyan-500
-  '#64748B', // slate-500
+  'bg-blue-400', 'bg-blue-500', 'bg-indigo-500', 
+  'bg-purple-500', 'bg-pink-400', 'bg-rose-500',
+  'bg-red-400', 'bg-orange-400', 'bg-amber-400',
+  'bg-yellow-400', 'bg-lime-500', 'bg-green-500',
+  'bg-emerald-500', 'bg-teal-500', 'bg-cyan-500',
+  'bg-slate-500'
 ];
 
-const ProfileEditor: React.FC<ProfileEditorProps> = ({
-  profile,
-  onSave,
-  onClose,
-  visible,
-}) => {
+const ProfileEditor: React.FC<ProfileEditorProps> = ({ profile, onSave, onClose }) => {
   const [name, setName] = useState(profile.name);
   const [color, setColor] = useState(profile.avatarColor);
   const [dob, setDob] = useState(profile.dateOfBirth || '');
@@ -54,247 +29,70 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({
       ...profile,
       name: name.trim(),
       avatarColor: color,
-      dateOfBirth: dob,
+      dateOfBirth: dob
     });
     onClose();
   };
 
   return (
-    <Modal
-      visible={visible}
-      animationType="fade"
-      transparent
-      onRequestClose={onClose}
-    >
-      <SafeAreaView style={styles.overlay}>
-        <View style={styles.centeredView}>
-          <View style={styles.modalView}>
-            {/* Header */}
-            <View style={styles.header}>
-              <Text style={styles.headerTitle}>Edit Profile</Text>
-              <TouchableOpacity
-                onPress={onClose}
-                style={styles.closeButton}
-              >
-                <Text style={styles.closeButtonText}>✕</Text>
-              </TouchableOpacity>
-            </View>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white w-full max-w-sm rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div className="flex justify-between items-center p-4 border-b border-slate-100 bg-slate-50">
+          <h3 className="font-bold text-slate-800">Edit Profile</h3>
+          <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-200">
+            <XMarkIcon className="w-5 h-5" />
+          </button>
+        </div>
 
-            <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-              {/* Avatar Preview */}
-              <View style={styles.avatarSection}>
-                <View
-                  style={[
-                    styles.avatarPreview,
-                    { backgroundColor: color },
-                  ]}
-                >
-                  <Text style={styles.avatarLetter}>
-                    {name.charAt(0) || '?'}
-                  </Text>
-                </View>
+        <div className="p-6 space-y-6">
+          {/* Avatar Selection */}
+          <div className="flex flex-col items-center">
+            <div className={`w-20 h-20 rounded-full ${color} flex items-center justify-center text-white text-3xl font-bold mb-4 shadow-lg ring-4 ring-white`}>
+              {name.charAt(0) || '?'}
+            </div>
+            <div className="grid grid-cols-8 gap-2">
+              {AVATAR_COLORS.map(c => (
+                <button
+                  key={c}
+                  onClick={() => setColor(c)}
+                  className={`w-6 h-6 rounded-full ${c} ring-2 ring-offset-1 ${color === c ? 'ring-slate-800' : 'ring-transparent'}`}
+                />
+              ))}
+            </div>
+          </div>
 
-                {/* Color Picker Grid */}
-                <View style={styles.colorGrid}>
-                  {AVATAR_COLORS.map((c) => (
-                    <TouchableOpacity
-                      key={c}
-                      onPress={() => setColor(c)}
-                      style={[
-                        styles.colorOption,
-                        { backgroundColor: c },
-                        color === c && styles.colorOptionSelected,
-                      ]}
-                    >
-                      {color === c && (
-                        <Text style={styles.colorCheckmark}>✓</Text>
-                      )}
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Name</label>
+              <input 
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-800 font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder="Child's Name"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Date of Birth (Optional)</label>
+              <input 
+                type="date"
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                value={dob}
+                onChange={e => setDob(e.target.value)}
+              />
+            </div>
+          </div>
 
-              {/* Form Fields */}
-              <View style={styles.formSection}>
-                {/* Name Input */}
-                <View style={styles.formGroup}>
-                  <Text style={styles.label}>Name</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={name}
-                    onChangeText={setName}
-                    placeholder="Child's Name"
-                    placeholderTextColor="#94A3B8"
-                  />
-                </View>
-
-                {/* Date of Birth Input */}
-                <View style={styles.formGroup}>
-                  <Text style={styles.label}>Date of Birth (Optional)</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={dob}
-                    onChangeText={setDob}
-                    placeholder="YYYY-MM-DD"
-                    placeholderTextColor="#94A3B8"
-                  />
-                </View>
-              </View>
-
-              {/* Save Button */}
-              <TouchableOpacity
-                onPress={handleSave}
-                style={styles.saveButton}
-              >
-                <Text style={styles.saveButtonText}>Save Changes</Text>
-              </TouchableOpacity>
-
-              <View style={styles.bottomPadding} />
-            </ScrollView>
-          </View>
-        </View>
-      </SafeAreaView>
-    </Modal>
+          <button 
+            onClick={handleSave}
+            className="w-full bg-slate-900 text-white font-bold py-3 rounded-xl hover:bg-slate-800 active:scale-[0.98] transition-transform"
+          >
+            Save Changes
+          </button>
+        </div>
+      </div>
+    </div>
   );
 };
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  centeredView: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalView: {
-    width: '85%',
-    maxWidth: 400,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-    backgroundColor: '#F8FAFC',
-  },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#1E293B',
-  },
-  closeButton: {
-    padding: 8,
-    borderRadius: 8,
-  },
-  closeButtonText: {
-    fontSize: 20,
-    color: '#94A3B8',
-  },
-  content: {
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-  },
-  avatarSection: {
-    alignItems: 'center',
-    marginBottom: 28,
-  },
-  avatarPreview: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  avatarLetter: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  colorGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 8,
-    width: '100%',
-  },
-  colorOption: {
-    width: '22%',
-    aspectRatio: 1,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  colorOptionSelected: {
-    borderColor: '#1E293B',
-  },
-  colorCheckmark: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  formSection: {
-    marginBottom: 24,
-    gap: 16,
-  },
-  formGroup: {
-    gap: 6,
-  },
-  label: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#64748B',
-    textTransform: 'uppercase',
-    letterSpacing: 0.3,
-  },
-  input: {
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: '#1E293B',
-  },
-  saveButton: {
-    backgroundColor: '#1E293B',
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  saveButtonText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  bottomPadding: {
-    height: 20,
-  },
-});
 
 export default ProfileEditor;

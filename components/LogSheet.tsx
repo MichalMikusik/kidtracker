@@ -1,18 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  Modal,
-  ScrollView,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  FlatList,
-  KeyboardAvoidingView,
-  Platform,
-  SafeAreaView,
-} from 'react-native';
 import { DailyLog, Medication, TemperatureReading } from '../types';
+import { formatDateTitle } from '../utils';
 
 interface LogSheetProps {
   date: string;
@@ -20,40 +9,19 @@ interface LogSheetProps {
   onSave: (log: DailyLog) => void;
   onClose: () => void;
   onDelete: (date: string) => void;
-  visible: boolean;
 }
 
-const COMMON_SYMPTOMS = [
-  'Fever',
-  'Cough',
-  'Runny Nose',
-  'Vomiting',
-  'Headache',
-  'Stomach Ache',
-  'Fatigue',
-  'Rash',
-];
+const COMMON_SYMPTOMS = ['Fever', 'Cough', 'Runny Nose', 'Vomiting', 'Headache', 'Stomach Ache', 'Fatigue', 'Rash'];
 
-const LogSheet: React.FC<LogSheetProps> = ({
-  date,
-  existingLog,
-  onSave,
-  onClose,
-  onDelete,
-  visible,
-}) => {
-  const [symptoms, setSymptoms] = useState<string[]>(
-    existingLog?.symptoms || []
-  );
+const LogSheet: React.FC<LogSheetProps> = ({ date, existingLog, onSave, onClose, onDelete }) => {
+  const [symptoms, setSymptoms] = useState<string[]>(existingLog?.symptoms || []);
   const [notes, setNotes] = useState(existingLog?.notes || '');
   const [meds, setMeds] = useState<Medication[]>(existingLog?.medications || []);
-  const [temps, setTemps] = useState<TemperatureReading[]>(
-    existingLog?.temperatures || []
-  );
-
+  const [temps, setTemps] = useState<TemperatureReading[]>(existingLog?.temperatures || []);
+  
   const [newMedName, setNewMedName] = useState('');
   const [newMedDose, setNewMedDose] = useState('');
-
+  
   const [newTempVal, setNewTempVal] = useState('37.0');
   const [newTempTime, setNewTempTime] = useState('');
 
@@ -61,26 +29,20 @@ const LogSheet: React.FC<LogSheetProps> = ({
 
   // Reset when date changes
   useEffect(() => {
-    if (visible) {
-      setSymptoms(existingLog?.symptoms || []);
-      setNotes(existingLog?.notes || '');
-      setMeds(existingLog?.medications || []);
-      setTemps(existingLog?.temperatures || []);
-      setNewTempVal('37.0');
-
-      // Default time for new temp to now
-      const now = new Date();
-      setNewTempTime(
-        `${String(now.getHours()).padStart(2, '0')}:${String(
-          now.getMinutes()
-        ).padStart(2, '0')}`
-      );
-    }
-  }, [date, existingLog, visible]);
+    setSymptoms(existingLog?.symptoms || []);
+    setNotes(existingLog?.notes || '');
+    setMeds(existingLog?.medications || []);
+    setTemps(existingLog?.temperatures || []);
+    setNewTempVal('37.0');
+    
+    // Default time for new temp to now
+    const now = new Date();
+    setNewTempTime(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`);
+  }, [date, existingLog]);
 
   const toggleSymptom = (sym: string) => {
     if (symptoms.includes(sym)) {
-      setSymptoms(symptoms.filter((s) => s !== sym));
+      setSymptoms(symptoms.filter(s => s !== sym));
     } else {
       setSymptoms([...symptoms, sym]);
     }
@@ -88,11 +50,11 @@ const LogSheet: React.FC<LogSheetProps> = ({
 
   const addCustomSymptom = () => {
     if (customSymptom.trim()) {
-      const val = customSymptom.trim();
-      if (!symptoms.includes(val)) {
-        setSymptoms([...symptoms, val]);
-      }
-      setCustomSymptom('');
+        const val = customSymptom.trim();
+        if(!symptoms.includes(val)) {
+            setSymptoms([...symptoms, val]);
+        }
+        setCustomSymptom('');
     }
   };
 
@@ -109,591 +71,206 @@ const LogSheet: React.FC<LogSheetProps> = ({
   };
 
   const addTemp = () => {
-    if (newTempVal && newTempTime) {
-      setTemps(
-        [...temps, { value: parseFloat(newTempVal), time: newTempTime }].sort(
-          (a, b) => a.time.localeCompare(b.time)
-        )
-      );
-      setNewTempVal('37.0');
-    }
-  };
+      if(newTempVal && newTempTime) {
+          setTemps([...temps, { value: parseFloat(newTempVal), time: newTempTime }].sort((a,b) => a.time.localeCompare(b.time)));
+          // Reset slightly but keep time close
+          setNewTempVal('37.0');
+      }
+  }
 
   const adjustTemp = (delta: number) => {
-    const current = parseFloat(newTempVal) || 37.0;
-    setNewTempVal((current + delta).toFixed(1));
-  };
+      const current = parseFloat(newTempVal) || 37.0;
+      setNewTempVal((current + delta).toFixed(1));
+  }
 
   const removeTemp = (index: number) => {
-    setTemps(temps.filter((_, i) => i !== index));
-  };
+      setTemps(temps.filter((_, i) => i !== index));
+  }
 
   const handleSave = () => {
-    if (
-      symptoms.length === 0 &&
-      meds.length === 0 &&
-      temps.length === 0 &&
-      !notes.trim()
-    ) {
-      onDelete(date);
+    // If empty, we can just delete or save empty log. 
+    // Logic: if all fields empty, it essentially deletes the day from being "sick" or tracked.
+    if (symptoms.length === 0 && meds.length === 0 && temps.length === 0 && !notes.trim()) {
+        onDelete(date);
     } else {
-      onSave({
-        date,
-        symptoms,
-        medications: meds,
-        temperatures: temps,
-        notes,
-      });
+        onSave({
+            date,
+            symptoms,
+            medications: meds,
+            temperatures: temps,
+            notes
+        });
     }
     onClose();
   };
 
-  // Format date for display
-  const formatDateTitle = (dateStr: string): string => {
-    if (!dateStr) return '';
-    const [y, m, d] = dateStr.split('-').map(Number);
-    const dateObj = new Date(y, m - 1, d);
-    return dateObj.toLocaleDateString(undefined, {
-      weekday: 'long',
-      month: 'long',
-      day: 'numeric',
-    });
-  };
-
+  // Format date for display using local parsing
   const displayDate = formatDateTitle(date);
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={onClose}
-    >
-      <SafeAreaView style={styles.container}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.flex}
-        >
-          <ScrollView
-            style={styles.scrollView}
-            showsVerticalScrollIndicator={false}
-          >
-            {/* Header */}
-            <View style={styles.header}>
-              <Text style={styles.headerTitle}>{displayDate}</Text>
-              <TouchableOpacity
-                onPress={() => onDelete(date)}
-                style={styles.clearButton}
-              >
-                <Text style={styles.clearButtonText}>Clear Day</Text>
-              </TouchableOpacity>
-            </View>
+    <div className="fixed inset-0 z-50 flex items-end justify-center pointer-events-none">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/40 pointer-events-auto transition-opacity" onClick={onClose} />
+      
+      {/* Sheet */}
+      <div className="bg-white w-full max-w-md rounded-t-3xl shadow-2xl pointer-events-auto transform transition-transform duration-300 max-h-[90vh] overflow-y-auto flex flex-col">
+        
+        {/* Handle */}
+        <div className="pt-3 pb-1 flex justify-center sticky top-0 bg-white z-10">
+          <div className="w-12 h-1.5 bg-slate-200 rounded-full" />
+        </div>
 
-            <View style={styles.content}>
-              {/* Symptoms Section */}
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>Symptoms</Text>
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>
-                      {symptoms.length} selected
-                    </Text>
-                  </View>
-                </View>
+        <div className="p-6 pt-2 pb-10 space-y-8">
+          <div className="flex justify-between items-center border-b border-slate-100 pb-4">
+             <h2 className="text-2xl font-bold text-slate-800">{displayDate}</h2>
+             <button onClick={() => onDelete(date)} className="text-red-400 text-sm font-medium px-2 py-1 rounded hover:bg-red-50">Clear Day</button>
+          </div>
 
-                <View style={styles.symptomGrid}>
-                  {COMMON_SYMPTOMS.map((sym) => (
-                    <TouchableOpacity
-                      key={sym}
-                      onPress={() => toggleSymptom(sym)}
-                      style={[
-                        styles.symptomButton,
-                        symptoms.includes(sym) && styles.symptomButtonActive,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.symptomButtonText,
-                          symptoms.includes(sym) &&
-                            styles.symptomButtonTextActive,
-                        ]}
-                      >
-                        {sym}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+          {/* Symptoms */}
+          <div className="space-y-3">
+              <label className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                  Symptoms
+                  <span className="bg-slate-100 text-slate-500 text-xs px-2 py-0.5 rounded-full font-normal">{symptoms.length} selected</span>
+              </label>
+              
+              <div className="flex flex-wrap gap-2">
+                {COMMON_SYMPTOMS.map(sym => (
+                  <button
+                    key={sym}
+                    onClick={() => toggleSymptom(sym)}
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors
+                      ${symptoms.includes(sym) ? 'bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-200' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'}`}
+                  >
+                    {sym}
+                  </button>
+                ))}
+                {/* Custom Symptoms Display */}
+                {symptoms.filter(s => !COMMON_SYMPTOMS.includes(s)).map(sym => (
+                   <button
+                   key={sym}
+                   onClick={() => toggleSymptom(sym)}
+                   className="px-3 py-1.5 rounded-full text-sm font-medium border bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-200"
+                 >
+                   {sym}
+                 </button>
+                ))}
+              </div>
 
-                  {/* Custom Symptoms */}
-                  {symptoms
-                    .filter((s) => !COMMON_SYMPTOMS.includes(s))
-                    .map((sym) => (
-                      <TouchableOpacity
-                        key={sym}
-                        onPress={() => toggleSymptom(sym)}
-                        style={[
-                          styles.symptomButton,
-                          styles.symptomButtonActive,
-                        ]}
-                      >
-                        <Text style={styles.symptomButtonTextActive}>
-                          {sym}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                </View>
-
-                {/* Add Custom Symptom */}
-                <View style={styles.addCustomContainer}>
-                  <TextInput
-                    style={styles.customInput}
+              {/* Add Custom Symptom */}
+              <div className="flex gap-2 mt-2">
+                  <input 
+                    className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     placeholder="Add other symptom..."
-                    placeholderTextColor="#94A3B8"
                     value={customSymptom}
-                    onChangeText={setCustomSymptom}
+                    onChange={e => setCustomSymptom(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && addCustomSymptom()}
                   />
-                  <TouchableOpacity
-                    onPress={addCustomSymptom}
-                    style={styles.addButton}
-                  >
-                    <Text style={styles.addButtonText}>+</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
+                  <button onClick={addCustomSymptom} className="bg-slate-200 text-slate-600 px-3 rounded-lg font-bold hover:bg-slate-300">+</button>
+              </div>
+          </div>
 
-              {/* Temperature Section */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Temperature</Text>
+          {/* Temperature */}
+          <div className="space-y-3">
+              <label className="text-sm font-bold text-slate-800 uppercase tracking-wider">Temperature</label>
+              
+              <div className="grid grid-cols-2 gap-2">
+                 {temps.map((t, idx) => (
+                     <div key={idx} className="flex items-center justify-between bg-red-50 border border-red-100 rounded-lg p-2 px-3">
+                         <div>
+                            <span className="block text-lg font-bold text-red-700">{t.value.toFixed(1)}°</span>
+                            <span className="block text-xs text-red-400">{t.time}</span>
+                         </div>
+                         <button onClick={() => removeTemp(idx)} className="text-red-300 hover:text-red-600">×</button>
+                     </div>
+                 ))}
+              </div>
 
-                {temps.length > 0 && (
-                  <View style={styles.temperatureList}>
-                    {temps.map((t, idx) => (
-                      <View key={idx} style={styles.tempCard}>
-                        <View>
-                          <Text style={styles.tempValue}>
-                            {t.value.toFixed(1)}°
-                          </Text>
-                          <Text style={styles.tempTime}>{t.time}</Text>
-                        </View>
-                        <TouchableOpacity onPress={() => removeTemp(idx)}>
-                          <Text style={styles.tempRemove}>×</Text>
-                        </TouchableOpacity>
-                      </View>
-                    ))}
-                  </View>
-                )}
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                  <div className="flex items-center gap-2 mb-2">
+                    <button onClick={() => adjustTemp(-0.1)} className="w-10 h-10 bg-white border border-slate-200 rounded-lg font-bold text-slate-500 hover:bg-slate-100 active:bg-slate-200">-</button>
+                    <input 
+                        type="number"
+                        step="0.1"
+                        className="flex-1 text-center bg-white border border-slate-200 rounded-lg h-10 font-bold text-lg focus:outline-none"
+                        value={newTempVal}
+                        onChange={e => setNewTempVal(e.target.value)}
+                    />
+                    <button onClick={() => adjustTemp(0.1)} className="w-10 h-10 bg-white border border-slate-200 rounded-lg font-bold text-slate-500 hover:bg-slate-100 active:bg-slate-200">+</button>
+                  </div>
+                  
+                  <div className="flex gap-2">
+                      <input 
+                        type="time"
+                        className="flex-1 bg-white border border-slate-200 rounded-lg px-2 py-2 text-sm focus:outline-none text-center"
+                        value={newTempTime}
+                        onChange={e => setNewTempTime(e.target.value)}
+                      />
+                      <button 
+                        onClick={addTemp}
+                        className="bg-red-500 text-white rounded-lg px-6 py-2 font-bold hover:bg-red-600"
+                      >
+                        Add
+                      </button>
+                  </div>
+              </div>
+          </div>
 
-                <View style={styles.tempInputContainer}>
-                  <TouchableOpacity
-                    onPress={() => adjustTemp(-0.1)}
-                    style={styles.tempButton}
-                  >
-                    <Text style={styles.tempButtonText}>−</Text>
-                  </TouchableOpacity>
-
-                  <TextInput
-                    style={styles.tempInput}
-                    value={newTempVal}
-                    onChangeText={setNewTempVal}
-                    keyboardType="decimal-pad"
-                  />
-
-                  <TouchableOpacity
-                    onPress={() => adjustTemp(0.1)}
-                    style={styles.tempButton}
-                  >
-                    <Text style={styles.tempButtonText}>+</Text>
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.timeInputContainer}>
-                  <TextInput
-                    style={styles.timeInput}
-                    placeholder="HH:MM"
-                    placeholderTextColor="#94A3B8"
-                    value={newTempTime}
-                    onChangeText={setNewTempTime}
-                  />
-                  <TouchableOpacity
-                    onPress={addTemp}
-                    style={styles.addTempButton}
-                  >
-                    <Text style={styles.addTempButtonText}>Add</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* Medications Section */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Medications</Text>
-
-                {meds.length > 0 && (
-                  <View style={styles.medList}>
-                    {meds.map((m, idx) => (
-                      <View key={idx} style={styles.medCard}>
-                        <View>
-                          <Text style={styles.medName}>{m.name}</Text>
-                          <Text style={styles.medDose}>{m.dosage}</Text>
-                        </View>
-                        <TouchableOpacity onPress={() => removeMed(idx)}>
-                          <Text style={styles.medRemove}>×</Text>
-                        </TouchableOpacity>
-                      </View>
-                    ))}
-                  </View>
-                )}
-
-                <View style={styles.medInputContainer}>
-                  <TextInput
-                    style={[styles.medInput, styles.flex]}
+          {/* Meds */}
+          <div className="space-y-3">
+              <label className="text-sm font-bold text-slate-800 uppercase tracking-wider">Medications</label>
+              <div className="space-y-2">
+                {meds.map((m, idx) => (
+                  <div key={idx} className="flex justify-between items-center bg-blue-50 p-2 px-3 rounded-lg border border-blue-100">
+                    <span className="text-blue-900 font-medium">{m.name} <span className="text-blue-500 text-sm">({m.dosage})</span></span>
+                    <button onClick={() => removeMed(idx)} className="text-blue-300 hover:text-blue-600">×</button>
+                  </div>
+                ))}
+                
+                <div className="flex gap-2">
+                  <input 
+                    className="flex-1 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     placeholder="Medicine"
-                    placeholderTextColor="#94A3B8"
                     value={newMedName}
-                    onChangeText={setNewMedName}
+                    onChange={e => setNewMedName(e.target.value)}
                   />
-                  <TextInput
-                    style={[styles.medInput, { width: 80 }]}
+                  <input 
+                    className="w-20 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     placeholder="Dose"
-                    placeholderTextColor="#94A3B8"
                     value={newMedDose}
-                    onChangeText={setNewMedDose}
+                    onChange={e => setNewMedDose(e.target.value)}
                   />
-                  <TouchableOpacity
-                    onPress={addMed}
-                    style={styles.addMedButton}
+                  <button 
+                    onClick={addMed}
+                    className="bg-blue-500 text-white rounded-lg px-4 font-bold text-lg hover:bg-blue-600"
                   >
-                    <Text style={styles.addMedButtonText}>+</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
+                    +
+                  </button>
+                </div>
+              </div>
+          </div>
 
-              {/* Notes Section */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Notes</Text>
-                <TextInput
-                  style={styles.notesInput}
-                  placeholder="Any specific observations..."
-                  placeholderTextColor="#94A3B8"
-                  value={notes}
-                  onChangeText={setNotes}
-                  multiline
-                  numberOfLines={4}
-                />
-              </View>
+          {/* Notes */}
+          <div className="space-y-3">
+             <label className="text-sm font-bold text-slate-800 uppercase tracking-wider">Notes</label>
+             <textarea 
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                rows={3}
+                placeholder="Any specific observations..."
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+             />
+          </div>
 
-              {/* Save Button */}
-              <TouchableOpacity
-                onPress={handleSave}
-                style={styles.saveButton}
-              >
-                <Text style={styles.saveButtonText}>Save Log</Text>
-              </TouchableOpacity>
-
-              <View style={styles.bottomPadding} />
-            </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-    </Modal>
+          <button 
+            onClick={handleSave}
+            className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl shadow-lg hover:bg-slate-800 active:scale-[0.98] transition-all"
+          >
+            Save Log
+          </button>
+        </div>
+      </div>
+    </div>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  flex: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1E293B',
-  },
-  clearButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-  },
-  clearButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#EF4444',
-  },
-  content: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-  },
-  section: {
-    marginBottom: 28,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1E293B',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  badge: {
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
-  },
-  badgeText: {
-    fontSize: 12,
-    color: '#64748B',
-    fontWeight: '500',
-  },
-  symptomGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 12,
-  },
-  symptomButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#FFFFFF',
-  },
-  symptomButtonActive: {
-    backgroundColor: '#4F46E5',
-    borderColor: '#4F46E5',
-  },
-  symptomButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#475569',
-  },
-  symptomButtonTextActive: {
-    color: '#FFFFFF',
-  },
-  addCustomContainer: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  customInput: {
-    flex: 1,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: '#1E293B',
-  },
-  addButton: {
-    backgroundColor: '#CBD5E1',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  addButtonText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#475569',
-  },
-  temperatureList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 12,
-  },
-  tempCard: {
-    width: '48%',
-    backgroundColor: '#FEE2E2',
-    borderWidth: 1,
-    borderColor: '#FECB81',
-    borderRadius: 8,
-    padding: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  tempValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#B91C1C',
-  },
-  tempTime: {
-    fontSize: 11,
-    color: '#DC2626',
-    marginTop: 4,
-  },
-  tempRemove: {
-    fontSize: 20,
-    color: '#FECACA',
-  },
-  tempInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#F8FAFC',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    marginBottom: 12,
-  },
-  tempButton: {
-    width: 40,
-    height: 40,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  tempButtonText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#64748B',
-  },
-  tempInput: {
-    flex: 1,
-    textAlign: 'center',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 8,
-    paddingVertical: 10,
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1E293B',
-  },
-  timeInputContainer: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  timeInput: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: '#1E293B',
-    textAlign: 'center',
-  },
-  addTempButton: {
-    backgroundColor: '#EF4444',
-    borderRadius: 8,
-    paddingHorizontal: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  addTempButtonText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  medList: {
-    gap: 8,
-    marginBottom: 12,
-  },
-  medCard: {
-    backgroundColor: '#DBEAFE',
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-    borderRadius: 8,
-    padding: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  medName: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#1E3A8A',
-  },
-  medDose: {
-    fontSize: 12,
-    color: '#3B82F6',
-    marginTop: 2,
-  },
-  medRemove: {
-    fontSize: 20,
-    color: '#BFDBFE',
-  },
-  medInputContainer: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  medInput: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: '#1E293B',
-  },
-  addMedButton: {
-    backgroundColor: '#3B82F6',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  addMedButtonText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 18,
-  },
-  notesInput: {
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    fontSize: 14,
-    color: '#1E293B',
-    textAlignVertical: 'top',
-  },
-  saveButton: {
-    backgroundColor: '#1E293B',
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginTop: 8,
-    marginBottom: 16,
-  },
-  saveButtonText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  bottomPadding: {
-    height: 20,
-  },
-});
 
 export default LogSheet;

@@ -37,18 +37,25 @@ export const saveState = (state: AppState) => {
 
 // Helper to generate demo data
 export const generateDemoData = (): AppState => {
-  const profileId = 'p1';
-  const logs: Record<string, any> = {};
+  const profiles: Profile[] = [
+    { id: 'p1', name: 'Alex', avatarColor: 'bg-blue-400' },
+    { id: 'p2', name: 'Sam', avatarColor: 'bg-green-400' },
+    { id: 'p3', name: 'Dad', avatarColor: 'bg-slate-500' },
+    { id: 'p4', name: 'Mom', avatarColor: 'bg-purple-500' },
+  ];
+
+  const logs: Record<string, Record<string, any>> = {};
+  profiles.forEach(p => logs[p.id] = {});
   
   const today = new Date();
   
-  const addEpisode = (start: Date, duration: number, symptoms: string[]) => {
+  const addEpisode = (pid: string, start: Date, duration: number, symptoms: string[]) => {
     for (let i = 0; i < duration; i++) {
       const d = new Date(start);
       d.setDate(d.getDate() + i);
       const dateKey = toLocalISOString(d); // Use local date string
       
-      logs[dateKey] = {
+      logs[pid][dateKey] = {
         date: dateKey,
         symptoms: symptoms,
         medications: i < 3 ? [{ name: 'Ibuprofen', dosage: '5ml' }] : [],
@@ -59,20 +66,26 @@ export const generateDemoData = (): AppState => {
     }
   };
 
-  // Episode 1: 4 months ago
-  const d1 = new Date(today); d1.setMonth(d1.getMonth() - 4);
-  addEpisode(d1, 5, ['Fever', 'Cough']);
+  // Scenario 1: Transmission
+  // Alex sick 14 days ago
+  const d1 = new Date(today); d1.setDate(d1.getDate() - 14);
+  addEpisode('p1', d1, 5, ['Fever', 'Cough']);
 
-  // Episode 2: 2 months ago
-  const d2 = new Date(today); d2.setMonth(d2.getMonth() - 2);
-  addEpisode(d2, 3, ['Runny Nose']);
+  // Sam sick 11 days ago (3 days after Alex started)
+  const d2 = new Date(d1); d2.setDate(d2.getDate() + 3);
+  addEpisode('p2', d2, 4, ['Runny Nose', 'Fever']);
 
-  // Episode 3: 2 weeks ago
-  const d3 = new Date(today); d3.setDate(d3.getDate() - 14);
-  addEpisode(d3, 4, ['Fever', 'Vomiting']);
+  // Scenario 2: Mom recent
+  const d3 = new Date(today); d3.setDate(d3.getDate() - 4);
+  addEpisode('p4', d3, 3, ['Headache', 'Fatigue']);
+
+  // Scenario 3: Alex separate episode 2 months ago
+  const d4 = new Date(today); d4.setMonth(d4.getMonth() - 2);
+  addEpisode('p1', d4, 3, ['Vomiting']);
 
   return {
-    ...DEFAULT_STATE,
-    logs: { [profileId]: logs }
+    profiles,
+    logs,
+    currentProfileId: 'p1',
   };
 };
