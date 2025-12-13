@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AppState, DailyLog, Profile } from './types';
 import { loadState, saveState, generateDemoData } from './services/storageService';
-import { auth, loginWithGoogle, logout, subscribeToData, saveToFirebase, migrateLocalToFirebase } from './services/firebase';
+import { auth, loginWithGoogle, logout, subscribeToData, saveToFirebase } from './services/firebase';
 import { User } from 'firebase/auth';
 import CalendarView from './components/CalendarView';
 import StatsView from './components/StatsView';
@@ -23,7 +23,6 @@ function App() {
   // Auth State
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [dataLoading, setDataLoading] = useState(false);
 
   // App Data State
   const [state, setState] = useState<AppState | null>(null);
@@ -37,33 +36,35 @@ function App() {
   const [aiInsight, setAiInsight] = useState<string>('');
   const [loadingAi, setLoadingAi] = useState(false);
 
-  // 1. Handle Authentication
+  // 1. Handle Authentication & Data Sync
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (currentUser) => {
       setUser(currentUser);
+      
       if (currentUser) {
-        // User logged in: Check for migration, then subscribe
-        setDataLoading(true);
+        // STRATEGY: Offline First.
+        // 1. Load local data immediately so the user sees the app INSTANTLY.
         const localData = loadState();
-        
-        // Attempt migration (only happens if remote is empty)
-        await migrateLocalToFirebase(currentUser, localData);
-        
-        // Subscribe to real-time updates
+        setState(localData);
+
+        // 2. Subscribe to Firebase in the background.
         subscribeToData(
             currentUser, 
-            (newData) => {
-                if (newData) {
-                    setState(newData);
+            (cloudData) => {
+                if (cloudData) {
+                    // Cloud has data, update state
+                    setState(cloudData);
+                    // Update local storage to match cloud
+                    saveState(cloudData);
                 } else {
-                    // Fallback if migration failed or something weird happened
-                    setState(localData); 
+                    // Cloud is empty (New User). 
+                    // Save our local default state to cloud to initialize it.
+                    saveToFirebase(currentUser, localData);
                 }
-                setDataLoading(false);
             },
             (error) => {
                 console.error("Sync error:", error);
-                setDataLoading(false);
+                // On error, we just keep using the localData we already loaded
             }
         );
       } else {
@@ -78,11 +79,10 @@ function App() {
   // Helper to save state (updates local state immediately, then pushes to Firebase)
   const updateState = (newState: AppState) => {
       setState(newState);
+      saveState(newState); // Local backup
       if (user) {
-          saveToFirebase(user, newState);
+          saveToFirebase(user, newState); // Cloud sync
       }
-      // Keep local storage as a backup/cache
-      saveState(newState); 
   };
 
   // --- Views ---
@@ -104,7 +104,7 @@ function App() {
                   </div>
                   <div>
                       <h1 className="text-3xl font-black text-slate-800 mb-2">KidCare</h1>
-                      <p className="text-slate-500">Track sickness, symptoms, and health history safely in the cloud.</p>
+                      <p className="text-slate-500">Track sickness duration and symptoms simply.</p>
                   </div>
                   
                   <div className="pt-4 space-y-3">
@@ -121,7 +121,7 @@ function App() {
                         Sign in with Google
                     </button>
                     <p className="text-xs text-slate-400">
-                        Please configure your Firebase keys in <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-600">firebase.ts</code> if login fails.
+                        Please configure your Firebase keys if login fails.
                     </p>
                   </div>
               </div>
@@ -131,12 +131,11 @@ function App() {
 
   // --- Main App ---
 
-  // Safety check if state failed to load but user is auth'd
+  // Safety fallback if state is completely missing (rare due to loadState)
   if (!state) {
       return (
-        <div className="min-h-screen bg-slate-50 flex items-center justify-center flex-col gap-4">
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center">
             <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
-            <p className="text-slate-500 text-sm font-medium">Syncing your health data...</p>
         </div>
       );
   }
@@ -179,7 +178,7 @@ function App() {
   const handleGenerateData = () => {
     const data = generateDemoData();
     updateState(data);
-    alert("Demo data loaded and synced to cloud.");
+    alert("Demo data loaded.");
   };
 
   const handleAddProfile = () => {
@@ -230,7 +229,6 @@ function App() {
            <div>
              <h1 className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-2">
                 KidCare
-                {dataLoading && <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" title="Syncing..." />}
              </h1>
              <div className="flex items-center gap-2" onClick={() => setShowProfileEditor(true)}>
                 <p className="text-sm text-slate-500 font-bold">{currentProfile.name}</p>
@@ -268,9 +266,9 @@ function App() {
         {/* Helper for empty state */}
         {Object.keys(currentLogs).length === 0 && (
             <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 text-center">
-                <p className="text-indigo-800 text-sm mb-2">Start by tapping a date on the calendar, or load example data.</p>
+                <p className="text-indigo-800 text-sm mb-2">Welcome! Tap a date to track sickness.</p>
                 <button onClick={handleGenerateData} className="text-xs font-bold bg-indigo-200 text-indigo-800 px-3 py-1.5 rounded-full hover:bg-indigo-300">
-                    Load Demo Data
+                    Load Example Data
                 </button>
             </div>
         )}
@@ -282,20 +280,15 @@ function App() {
                 onDateSelect={handleDateSelect} 
                 selectedDate={selectedDate}
             />
-            <div className="mt-6">
-                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3 px-1">Legend</h3>
-                <div className="flex gap-4 px-1">
+            <div className="mt-6 flex justify-center">
+                <div className="bg-white rounded-full px-4 py-2 shadow-sm border border-slate-100 flex gap-6">
                     <div className="flex items-center gap-2">
                         <div className="w-3 h-3 rounded-full bg-red-500 shadow-sm shadow-red-200" />
-                        <span className="text-xs text-slate-600 font-medium">Started</span>
+                        <span className="text-xs text-slate-600 font-bold">Start</span>
                     </div>
                     <div className="flex items-center gap-2">
                         <div className="w-3 h-3 rounded-full bg-orange-400 shadow-sm shadow-orange-200" />
-                        <span className="text-xs text-slate-600 font-medium">Ongoing</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full bg-white border border-slate-300" />
-                        <span className="text-xs text-slate-600 font-medium">Healthy</span>
+                        <span className="text-xs text-slate-600 font-bold">Sick</span>
                     </div>
                 </div>
             </div>

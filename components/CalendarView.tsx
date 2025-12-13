@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { DailyLog } from '../types';
 import { ChevronLeftIcon, ChevronRightIcon } from './Icons';
@@ -31,8 +30,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ logs, onDateSelect, selecte
   const isSickDay = (dateStr: string) => {
     const log = logs[dateStr];
     if (!log) return false;
-    // Considered sick if symptoms recorded or temperature recorded
-    return (log.symptoms && log.symptoms.length > 0) || (log.temperatures && log.temperatures.length > 0);
+    // Considered sick if symptoms recorded or temperature recorded or simple note
+    return (log.symptoms && log.symptoms.length > 0) || (log.temperatures && log.temperatures.length > 0) || log.notes;
   };
 
   const days = useMemo(() => {
@@ -52,77 +51,83 @@ const CalendarView: React.FC<CalendarViewProps> = ({ logs, onDateSelect, selecte
     return daysArray;
   }, [currentDate]);
 
-  const getStatusColor = (day: number) => {
-    // Construct local date string manually to avoid UTC shifts
+  const getStatus = (day: number) => {
     const year = currentDate.getFullYear();
     const month = String(currentDate.getMonth() + 1).padStart(2, '0');
     const dayStr = String(day).padStart(2, '0');
     const dateStr = `${year}-${month}-${dayStr}`;
     
     // Check if today is sick
-    if (!isSickDay(dateStr)) return 'bg-white text-slate-700';
+    if (!isSickDay(dateStr)) return 'NONE';
 
-    // Check previous day to determine if "Started" or "Ongoing"
-    // Calculate previous day date string safely
+    // Check previous day
     const prevDateObj = new Date(year, currentDate.getMonth(), day - 1);
     const prevDateStr = toLocalISOString(prevDateObj);
 
     const wasSickYesterday = isSickDay(prevDateStr);
 
     if (wasSickYesterday) {
-        return 'bg-orange-400 text-white shadow-md shadow-orange-200'; // Ongoing
+        return 'ONGOING';
     } else {
-        return 'bg-red-500 text-white shadow-md shadow-red-200'; // Started
+        return 'STARTED';
     }
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4">
+    <div className="bg-white rounded-3xl shadow-lg shadow-slate-200/50 border border-slate-100 p-5">
       {/* Header */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex justify-between items-center mb-8">
         <h2 className="text-xl font-bold text-slate-800">{monthName} <span className="text-slate-400 font-normal">{year}</span></h2>
-        <div className="flex gap-2">
-          <button onClick={handlePrevMonth} className="p-2 hover:bg-slate-50 rounded-full text-slate-500 transition-colors">
+        <div className="flex gap-1 bg-slate-50 rounded-full p-1">
+          <button onClick={handlePrevMonth} className="p-2 hover:bg-white rounded-full text-slate-500 transition-all shadow-sm">
             <ChevronLeftIcon className="w-5 h-5" />
           </button>
-          <button onClick={handleNextMonth} className="p-2 hover:bg-slate-50 rounded-full text-slate-500 transition-colors">
+          <button onClick={handleNextMonth} className="p-2 hover:bg-white rounded-full text-slate-500 transition-all shadow-sm">
             <ChevronRightIcon className="w-5 h-5" />
           </button>
         </div>
       </div>
 
       {/* Days Header */}
-      <div className="grid grid-cols-7 mb-2">
-        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
-          <div key={i} className="text-center text-xs font-semibold text-slate-400 uppercase">
+      <div className="grid grid-cols-7 mb-4">
+        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d, i) => (
+          <div key={i} className="text-center text-[10px] font-bold text-slate-400 uppercase tracking-wider">
             {d}
           </div>
         ))}
       </div>
 
       {/* Grid */}
-      <div className="grid grid-cols-7 gap-y-2 gap-x-1">
+      <div className="grid grid-cols-7 gap-y-3 gap-x-1">
         {days.map((day, index) => {
           if (day === null) return <div key={`empty-${index}`} />;
           
-          // Construct date key consistent with getStatusColor
           const m = String(currentDate.getMonth() + 1).padStart(2, '0');
           const d = String(day).padStart(2, '0');
           const dateStr = `${currentDate.getFullYear()}-${m}-${d}`;
           
           const isSelected = selectedDate === dateStr;
-          const statusClass = getStatusColor(day);
+          const status = getStatus(day);
           
+          let baseClasses = "h-11 w-11 md:h-12 md:w-12 mx-auto flex items-center justify-center rounded-2xl text-sm font-semibold transition-all duration-200 relative";
+          
+          if (status === 'STARTED') {
+              baseClasses += " bg-red-500 text-white shadow-lg shadow-red-200 z-10 scale-105";
+          } else if (status === 'ONGOING') {
+              baseClasses += " bg-orange-400 text-white shadow-md shadow-orange-100";
+          } else {
+              baseClasses += " bg-transparent text-slate-600 hover:bg-slate-50";
+          }
+
+          if (isSelected) {
+              baseClasses += " ring-2 ring-indigo-500 ring-offset-2";
+          }
+
           return (
             <button
               key={day}
               onClick={() => onDateSelect(dateStr)}
-              className={`
-                h-10 w-10 md:h-12 md:w-12 mx-auto flex items-center justify-center rounded-xl text-sm font-medium transition-all duration-200
-                ${statusClass}
-                ${isSelected ? 'ring-2 ring-blue-500 ring-offset-2 scale-105' : ''}
-                hover:scale-105 active:scale-95
-              `}
+              className={baseClasses}
             >
               {day}
             </button>
