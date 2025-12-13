@@ -1,7 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
 import { AppState, DailyLog, Profile } from './types';
 import { loadState, saveState, generateDemoData } from './services/storageService';
+import { auth, loginWithGoogle, logout, subscribeToData, saveToFirebase, migrateLocalToFirebase } from './services/firebase';
+import { User } from 'firebase/auth';
 import CalendarView from './components/CalendarView';
 import StatsView from './components/StatsView';
 import HistoryView from './components/HistoryView';
@@ -19,7 +20,14 @@ enum Tab {
 }
 
 function App() {
-  const [state, setState] = useState<AppState>(loadState);
+  // Auth State
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [dataLoading, setDataLoading] = useState(false);
+
+  // App Data State
+  const [state, setState] = useState<AppState | null>(null);
+  
   const [activeTab, setActiveTab] = useState<Tab>(Tab.CALENDAR);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [showLogSheet, setShowLogSheet] = useState(false);
@@ -29,9 +37,109 @@ function App() {
   const [aiInsight, setAiInsight] = useState<string>('');
   const [loadingAi, setLoadingAi] = useState(false);
 
+  // 1. Handle Authentication
   useEffect(() => {
-    saveState(state);
-  }, [state]);
+    const unsubscribe = auth.onAuthStateChanged(async (currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        // User logged in: Check for migration, then subscribe
+        setDataLoading(true);
+        const localData = loadState();
+        
+        // Attempt migration (only happens if remote is empty)
+        await migrateLocalToFirebase(currentUser, localData);
+        
+        // Subscribe to real-time updates
+        subscribeToData(
+            currentUser, 
+            (newData) => {
+                if (newData) {
+                    setState(newData);
+                } else {
+                    // Fallback if migration failed or something weird happened
+                    setState(localData); 
+                }
+                setDataLoading(false);
+            },
+            (error) => {
+                console.error("Sync error:", error);
+                setDataLoading(false);
+            }
+        );
+      } else {
+        // User logged out: Reset state
+        setState(null);
+      }
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Helper to save state (updates local state immediately, then pushes to Firebase)
+  const updateState = (newState: AppState) => {
+      setState(newState);
+      if (user) {
+          saveToFirebase(user, newState);
+      }
+      // Keep local storage as a backup/cache
+      saveState(newState); 
+  };
+
+  // --- Views ---
+
+  if (authLoading) {
+      return (
+          <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+              <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+          </div>
+      );
+  }
+
+  if (!user) {
+      return (
+          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
+              <div className="bg-white p-8 rounded-3xl shadow-xl w-full max-w-sm space-y-6">
+                  <div className="w-20 h-20 bg-indigo-100 rounded-full mx-auto flex items-center justify-center text-4xl mb-4">
+                      👶
+                  </div>
+                  <div>
+                      <h1 className="text-3xl font-black text-slate-800 mb-2">KidCare</h1>
+                      <p className="text-slate-500">Track sickness, symptoms, and health history safely in the cloud.</p>
+                  </div>
+                  
+                  <div className="pt-4 space-y-3">
+                    <button 
+                        onClick={loginWithGoogle}
+                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-3 transition-all active:scale-[0.98] shadow-lg shadow-indigo-200"
+                    >
+                        <svg className="w-5 h-5 bg-white rounded-full p-0.5" viewBox="0 0 24 24">
+                            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                        </svg>
+                        Sign in with Google
+                    </button>
+                    <p className="text-xs text-slate-400">
+                        Please configure your Firebase keys in <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-600">firebase.ts</code> if login fails.
+                    </p>
+                  </div>
+              </div>
+          </div>
+      );
+  }
+
+  // --- Main App ---
+
+  // Safety check if state failed to load but user is auth'd
+  if (!state) {
+      return (
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center flex-col gap-4">
+            <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+            <p className="text-slate-500 text-sm font-medium">Syncing your health data...</p>
+        </div>
+      );
+  }
 
   const currentProfile = state.profiles.find(p => p.id === state.currentProfileId) || state.profiles[0];
   const currentLogs = state.logs[currentProfile.id] || ({} as Record<string, DailyLog>);
@@ -42,28 +150,27 @@ function App() {
   };
 
   const handleSaveLog = (log: DailyLog) => {
-    setState(prev => ({
-      ...prev,
+    updateState({
+      ...state,
       logs: {
-        ...prev.logs,
+        ...state.logs,
         [currentProfile.id]: {
-          ...prev.logs[currentProfile.id],
+          ...state.logs[currentProfile.id],
           [log.date]: log
         }
       }
-    }));
+    });
   };
 
   const handleDeleteLog = (date: string) => {
-      setState(prev => {
-          const newLogs = { ...prev.logs[currentProfile.id] };
-          delete newLogs[date];
-          return {
-              ...prev,
-              logs: {
-                  ...prev.logs,
-                  [currentProfile.id]: newLogs
-              }
+      const newLogs = { ...state.logs[currentProfile.id] };
+      delete newLogs[date];
+      
+      updateState({
+          ...state,
+          logs: {
+              ...state.logs,
+              [currentProfile.id]: newLogs
           }
       });
       setShowLogSheet(false);
@@ -71,8 +178,8 @@ function App() {
 
   const handleGenerateData = () => {
     const data = generateDemoData();
-    setState(data);
-    alert("Demo data loaded! Check the calendar and stats for correlations.");
+    updateState(data);
+    alert("Demo data loaded and synced to cloud.");
   };
 
   const handleAddProfile = () => {
@@ -86,19 +193,19 @@ function App() {
          name: `Child ${state.profiles.length + 1}`,
          avatarColor: ['bg-blue-400', 'bg-pink-400', 'bg-green-400', 'bg-yellow-400', 'bg-purple-400', 'bg-orange-400'][state.profiles.length]
      };
-     setState(prev => ({
-         ...prev,
-         profiles: [...prev.profiles, newProfile],
+     updateState({
+         ...state,
+         profiles: [...state.profiles, newProfile],
          currentProfileId: newId,
-         logs: { ...prev.logs, [newId]: {} }
-     }));
+         logs: { ...state.logs, [newId]: {} }
+     });
   }
 
   const handleUpdateProfile = (updated: Profile) => {
-      setState(prev => ({
-          ...prev,
-          profiles: prev.profiles.map(p => p.id === updated.id ? updated : p)
-      }));
+      updateState({
+          ...state,
+          profiles: state.profiles.map(p => p.id === updated.id ? updated : p)
+      });
   }
 
   const handleFetchInsights = async () => {
@@ -121,27 +228,36 @@ function App() {
       <div className="bg-white px-6 pt-12 pb-4 shadow-sm sticky top-0 z-30">
         <div className="flex justify-between items-center max-w-lg mx-auto">
            <div>
-             <h1 className="text-2xl font-black text-slate-800 tracking-tight">KidCare</h1>
+             <h1 className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-2">
+                KidCare
+                {dataLoading && <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" title="Syncing..." />}
+             </h1>
              <div className="flex items-center gap-2" onClick={() => setShowProfileEditor(true)}>
                 <p className="text-sm text-slate-500 font-bold">{currentProfile.name}</p>
                 <PencilIcon className="w-3 h-3 text-slate-400" />
              </div>
            </div>
            
-           {/* Profile Switcher */}
-           <div className="flex -space-x-2 overflow-hidden items-center">
-              {state.profiles.map(p => (
-                  <button 
-                    key={p.id}
-                    onClick={() => setState(s => ({ ...s, currentProfileId: p.id }))}
-                    className={`h-10 w-10 rounded-full border-2 border-white ${p.avatarColor} flex items-center justify-center text-white font-bold text-xs relative ${state.currentProfileId === p.id ? 'ring-2 ring-indigo-500 ring-offset-2 z-10' : 'opacity-70 hover:opacity-100 transition-opacity'}`}
-                  >
-                      {p.name[0]}
+           {/* Profile Switcher & Settings */}
+           <div className="flex items-center gap-3">
+               <div className="flex -space-x-2 overflow-hidden items-center">
+                  {state.profiles.map(p => (
+                      <button 
+                        key={p.id}
+                        onClick={() => updateState({ ...state, currentProfileId: p.id })}
+                        className={`h-10 w-10 rounded-full border-2 border-white ${p.avatarColor} flex items-center justify-center text-white font-bold text-xs relative ${state.currentProfileId === p.id ? 'ring-2 ring-indigo-500 ring-offset-2 z-10' : 'opacity-70 hover:opacity-100 transition-opacity'}`}
+                      >
+                          {p.name[0]}
+                      </button>
+                  ))}
+                  <button onClick={handleAddProfile} className="h-8 w-8 ml-3 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center hover:bg-slate-200">
+                      <PlusIcon className="w-5 h-5" />
                   </button>
-              ))}
-              <button onClick={handleAddProfile} className="h-8 w-8 ml-3 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center hover:bg-slate-200">
-                  <PlusIcon className="w-5 h-5" />
-              </button>
+               </div>
+               
+               <button onClick={logout} className="text-xs font-bold text-slate-400 hover:text-slate-600">
+                   Log Out
+               </button>
            </div>
         </div>
       </div>
@@ -170,11 +286,11 @@ function App() {
                 <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3 px-1">Legend</h3>
                 <div className="flex gap-4 px-1">
                     <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full bg-red-500" />
+                        <div className="w-3 h-3 rounded-full bg-red-500 shadow-sm shadow-red-200" />
                         <span className="text-xs text-slate-600 font-medium">Started</span>
                     </div>
                     <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full bg-orange-400" />
+                        <div className="w-3 h-3 rounded-full bg-orange-400 shadow-sm shadow-orange-200" />
                         <span className="text-xs text-slate-600 font-medium">Ongoing</span>
                     </div>
                     <div className="flex items-center gap-2">

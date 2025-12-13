@@ -10,7 +10,7 @@ interface HistoryViewProps {
 }
 
 const HistoryView: React.FC<HistoryViewProps> = ({ logs, onEditDate }) => {
-  const sortedLogs = Object.values(logs)
+  const sortedLogs = (Object.values(logs) as DailyLog[])
     .sort((a, b) => b.date.localeCompare(a.date));
 
   // Filter out days that are just notes/healthy if desired, but we keep everything for history

@@ -110,7 +110,7 @@ const StatsView: React.FC<StatsViewProps> = ({ currentProfileId, profiles, allLo
 
       // Extract start dates for all profiles
       const getStartDates = (pid: string) => {
-          const logs = Object.values(allLogs[pid] || {}).sort((a,b) => a.date.localeCompare(b.date));
+          const logs = (Object.values(allLogs[pid] || {}) as DailyLog[]).sort((a,b) => a.date.localeCompare(b.date));
           const starts: string[] = [];
           let inEp = false;
           let lastDate: Date | null = null;

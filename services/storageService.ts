@@ -35,7 +35,28 @@ export const saveState = (state: AppState) => {
   }
 };
 
-// Helper to generate demo data
+// --- Backup & Restore Features ---
+
+export const exportStateToJSON = (state: AppState): string => {
+  return JSON.stringify(state, null, 2);
+};
+
+export const importStateFromJSON = (jsonString: string): AppState | null => {
+  try {
+    const parsed = JSON.parse(jsonString);
+    // Basic validation
+    if (!parsed.profiles || !parsed.logs) {
+      throw new Error("Invalid backup file format");
+    }
+    return parsed as AppState;
+  } catch (e) {
+    console.error("Import failed", e);
+    return null;
+  }
+};
+
+// --- Demo Data Helper ---
+
 export const generateDemoData = (): AppState => {
   const profiles: Profile[] = [
     { id: 'p1', name: 'Alex', avatarColor: 'bg-blue-400' },

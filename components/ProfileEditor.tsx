@@ -1,7 +1,8 @@
 
-import React, { useState } from 'react';
-import { Profile } from '../types';
+import React, { useState, useRef } from 'react';
+import { Profile, AppState } from '../types';
 import { XMarkIcon } from './Icons';
+import { exportStateToJSON, importStateFromJSON, loadState, saveState } from '../services/storageService';
 
 interface ProfileEditorProps {
   profile: Profile;
@@ -22,6 +23,7 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ profile, onSave, onClose 
   const [name, setName] = useState(profile.name);
   const [color, setColor] = useState(profile.avatarColor);
   const [dob, setDob] = useState(profile.dateOfBirth || '');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSave = () => {
     if (!name.trim()) return;
@@ -34,9 +36,53 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ profile, onSave, onClose 
     onClose();
   };
 
+  const handleBackup = () => {
+    const currentState = loadState();
+    const jsonString = exportStateToJSON(currentState);
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `kidcare-backup-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleRestoreClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      if (content) {
+        const newState = importStateFromJSON(content);
+        if (newState) {
+          if(confirm('This will overwrite all current data with the backup. Are you sure?')) {
+             saveState(newState);
+             window.location.reload(); // Reload to reflect changes
+          }
+        } else {
+          alert('Invalid backup file.');
+        }
+      }
+    };
+    reader.readAsText(file);
+    
+    // Reset input
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white w-full max-w-sm rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-white w-full max-w-sm rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
         <div className="flex justify-between items-center p-4 border-b border-slate-100 bg-slate-50">
           <h3 className="font-bold text-slate-800">Edit Profile</h3>
           <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-200">
@@ -44,7 +90,7 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ profile, onSave, onClose 
           </button>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-6 overflow-y-auto">
           {/* Avatar Selection */}
           <div className="flex flex-col items-center">
             <div className={`w-20 h-20 rounded-full ${color} flex items-center justify-center text-white text-3xl font-bold mb-4 shadow-lg ring-4 ring-white`}>
@@ -89,6 +135,37 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ profile, onSave, onClose 
           >
             Save Changes
           </button>
+          
+          <div className="pt-6 mt-2 border-t border-slate-100">
+             <h4 className="text-xs font-bold text-slate-400 uppercase mb-3 text-center">Data Management</h4>
+             <div className="grid grid-cols-2 gap-3">
+                 <button 
+                    onClick={handleBackup}
+                    className="flex flex-col items-center justify-center gap-1 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl p-3 text-slate-600 transition-colors"
+                 >
+                     <span className="text-xl">📥</span>
+                     <span className="text-xs font-bold">Backup Data</span>
+                 </button>
+                 <button 
+                    onClick={handleRestoreClick}
+                    className="flex flex-col items-center justify-center gap-1 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl p-3 text-slate-600 transition-colors"
+                 >
+                     <span className="text-xl">📤</span>
+                     <span className="text-xs font-bold">Restore Data</span>
+                 </button>
+             </div>
+             {/* Hidden File Input */}
+             <input 
+                type="file" 
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                accept=".json"
+                className="hidden" 
+             />
+             <p className="text-[10px] text-slate-400 text-center mt-3 leading-tight">
+               Download a backup file to save your data, or upload one to restore it on another device.
+             </p>
+          </div>
         </div>
       </div>
     </div>
