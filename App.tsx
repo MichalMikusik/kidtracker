@@ -9,7 +9,7 @@ import HistoryView from './components/HistoryView';
 import LogSheet from './components/LogSheet';
 import ProfileEditor from './components/ProfileEditor';
 import InstallPrompt from './components/InstallPrompt';
-import { CalendarIcon, ChartBarIcon, SparklesIcon, PlusIcon, PencilIcon, ClockIcon } from './components/Icons';
+import { CalendarIcon, ChartBarIcon, SparklesIcon, PlusIcon, PencilIcon, ClockIcon, CloudIcon } from './components/Icons';
 import { getHealthInsights } from './services/geminiService';
 
 enum Tab {
@@ -22,10 +22,9 @@ enum Tab {
 function App() {
   // Auth State
   const [user, setUser] = useState<User | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
-
-  // App Data State
-  const [state, setState] = useState<AppState | null>(null);
+  
+  // App Data State - Initialize with local storage immediately for Guest Mode
+  const [state, setState] = useState<AppState>(() => loadState());
   
   const [activeTab, setActiveTab] = useState<Tab>(Tab.CALENDAR);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -42,105 +41,73 @@ function App() {
       setUser(currentUser);
       
       if (currentUser) {
-        // STRATEGY: Offline First.
-        // 1. Load local data immediately so the user sees the app INSTANTLY.
-        const localData = loadState();
-        setState(localData);
-
-        // 2. Subscribe to Firebase in the background.
+        // User just logged in. 
+        // 1. We have local data (state).
+        // 2. We subscribe to cloud.
+        // 3. Logic: If cloud is empty, upload local. If cloud has data, overwrite local (Sync Down).
+        
         subscribeToData(
             currentUser, 
             (cloudData) => {
                 if (cloudData) {
-                    // Cloud has data, update state
+                    // Cloud has data, sync down
                     setState(cloudData);
-                    // Update local storage to match cloud
                     saveState(cloudData);
                 } else {
-                    // Cloud is empty (New User). 
-                    // Save our local default state to cloud to initialize it.
-                    saveToFirebase(currentUser, localData);
+                    // Cloud is empty (New User or fresh login), upload current local guest data
+                    // We use the 'state' from closure, but better to use current loadState() to be safe
+                    const currentLocal = loadState();
+                    saveToFirebase(currentUser, currentLocal);
                 }
             },
             (error) => {
                 console.error("Sync error:", error);
-                // On error, we just keep using the localData we already loaded
             }
         );
-      } else {
-        // User logged out: Reset state
-        setState(null);
-      }
-      setAuthLoading(false);
+      } 
+      // Note: If logged out (Guest), we simply rely on the useState initialization 
+      // and updateState calls which write to localStorage.
     });
     return () => unsubscribe();
   }, []);
 
-  // Helper to save state (updates local state immediately, then pushes to Firebase)
+  // Helper to save state (updates local state immediately, then pushes to Firebase if logged in)
   const updateState = (newState: AppState) => {
       setState(newState);
-      saveState(newState); // Local backup
+      saveState(newState); // Local persistence (Cookie/LocalStorage)
       if (user) {
           saveToFirebase(user, newState); // Cloud sync
       }
   };
 
-  // --- Views ---
-
-  if (authLoading) {
-      return (
-          <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-              <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
-          </div>
-      );
+  const handleLogin = async () => {
+      try {
+          await loginWithGoogle();
+      } catch (e) {
+          alert("Could not sign in.");
+      }
   }
 
-  if (!user) {
-      return (
-          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
-              <div className="bg-white p-8 rounded-3xl shadow-xl w-full max-w-sm space-y-6">
-                  <div className="w-20 h-20 bg-indigo-100 rounded-full mx-auto flex items-center justify-center text-4xl mb-4">
-                      👶
-                  </div>
-                  <div>
-                      <h1 className="text-3xl font-black text-slate-800 mb-2">KidCare</h1>
-                      <p className="text-slate-500">Track sickness duration and symptoms simply.</p>
-                  </div>
-                  
-                  <div className="pt-4 space-y-3">
-                    <button 
-                        onClick={loginWithGoogle}
-                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-3 transition-all active:scale-[0.98] shadow-lg shadow-indigo-200"
-                    >
-                        <svg className="w-5 h-5 bg-white rounded-full p-0.5" viewBox="0 0 24 24">
-                            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-                            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-                        </svg>
-                        Sign in with Google
-                    </button>
-                    <p className="text-xs text-slate-400">
-                        Please configure your Firebase keys if login fails.
-                    </p>
-                  </div>
-              </div>
-          </div>
-      );
-  }
+  // --- Main App Logic ---
 
-  // --- Main App ---
-
-  // Safety fallback if state is completely missing (rare due to loadState)
-  if (!state) {
+  // Safety fallback if state is completely missing or corrupted
+  if (!state || !state.profiles || state.profiles.length === 0) {
       return (
-        <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center gap-4">
             <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+            <button 
+                onClick={() => { localStorage.clear(); window.location.reload(); }}
+                className="text-xs text-slate-500 underline"
+            >
+                Reset App Data
+            </button>
         </div>
       );
   }
 
+  // Safe Access to Current Profile
   const currentProfile = state.profiles.find(p => p.id === state.currentProfileId) || state.profiles[0];
+  
   const currentLogs = state.logs[currentProfile.id] || ({} as Record<string, DailyLog>);
 
   const handleDateSelect = (date: string) => {
@@ -230,7 +197,7 @@ function App() {
              <h1 className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-2">
                 KidCare
              </h1>
-             <div className="flex items-center gap-2" onClick={() => setShowProfileEditor(true)}>
+             <div className="flex items-center gap-2 cursor-pointer" onClick={() => setShowProfileEditor(true)}>
                 <p className="text-sm text-slate-500 font-bold">{currentProfile.name}</p>
                 <PencilIcon className="w-3 h-3 text-slate-400" />
              </div>
@@ -243,7 +210,7 @@ function App() {
                       <button 
                         key={p.id}
                         onClick={() => updateState({ ...state, currentProfileId: p.id })}
-                        className={`h-10 w-10 rounded-full border-2 border-white ${p.avatarColor} flex items-center justify-center text-white font-bold text-xs relative ${state.currentProfileId === p.id ? 'ring-2 ring-indigo-500 ring-offset-2 z-10' : 'opacity-70 hover:opacity-100 transition-opacity'}`}
+                        className={`h-10 w-10 rounded-full border-2 border-white ${p.avatarColor} flex items-center justify-center text-white font-bold text-xs relative ${currentProfile.id === p.id ? 'ring-2 ring-indigo-500 ring-offset-2 z-10' : 'opacity-70 hover:opacity-100 transition-opacity'}`}
                       >
                           {p.name[0]}
                       </button>
@@ -253,9 +220,23 @@ function App() {
                   </button>
                </div>
                
-               <button onClick={logout} className="text-xs font-bold text-slate-400 hover:text-slate-600">
-                   Log Out
-               </button>
+               {user ? (
+                   <button 
+                        onClick={logout} 
+                        className="text-xs font-bold text-slate-400 hover:text-red-500 transition-colors ml-2"
+                        title="Log Out"
+                   >
+                       Log Out
+                   </button>
+               ) : (
+                   <button 
+                        onClick={handleLogin} 
+                        className="flex items-center gap-2 bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-full hover:bg-indigo-100 transition-colors ml-2"
+                   >
+                       <CloudIcon className="w-4 h-4" />
+                       <span className="text-xs font-bold">Sync</span>
+                   </button>
+               )}
            </div>
         </div>
       </div>
@@ -263,10 +244,11 @@ function App() {
       {/* Main Content */}
       <div className="max-w-lg mx-auto p-4 md:p-6 space-y-6">
         
-        {/* Helper for empty state */}
-        {Object.keys(currentLogs).length === 0 && (
+        {/* Helper for empty state - Only show if no logs AND on calendar tab */}
+        {Object.keys(currentLogs).length === 0 && activeTab === Tab.CALENDAR && (
             <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 text-center">
                 <p className="text-indigo-800 text-sm mb-2">Welcome! Tap a date to track sickness.</p>
+                {!user && <p className="text-slate-500 text-xs mb-3">You are using Guest Mode. Sign in above to backup data.</p>}
                 <button onClick={handleGenerateData} className="text-xs font-bold bg-indigo-200 text-indigo-800 px-3 py-1.5 rounded-full hover:bg-indigo-300">
                     Load Example Data
                 </button>
@@ -284,11 +266,11 @@ function App() {
                 <div className="bg-white rounded-full px-4 py-2 shadow-sm border border-slate-100 flex gap-6">
                     <div className="flex items-center gap-2">
                         <div className="w-3 h-3 rounded-full bg-red-500 shadow-sm shadow-red-200" />
-                        <span className="text-xs text-slate-600 font-bold">Start</span>
+                        <span className="text-xs text-slate-600 font-bold">First Day</span>
                     </div>
                     <div className="flex items-center gap-2">
                         <div className="w-3 h-3 rounded-full bg-orange-400 shadow-sm shadow-orange-200" />
-                        <span className="text-xs text-slate-600 font-bold">Sick</span>
+                        <span className="text-xs text-slate-600 font-bold">Sick Day</span>
                     </div>
                 </div>
             </div>

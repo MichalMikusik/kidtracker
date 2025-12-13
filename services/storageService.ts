@@ -20,7 +20,15 @@ export const loadState = (): AppState => {
   try {
     const serialized = localStorage.getItem(STORAGE_KEY);
     if (!serialized) return DEFAULT_STATE;
-    return JSON.parse(serialized);
+    const parsed = JSON.parse(serialized);
+    
+    // Validation: Ensure profiles exist
+    if (!parsed.profiles || !Array.isArray(parsed.profiles) || parsed.profiles.length === 0) {
+        console.warn("Corrupted state detected, resetting to default.");
+        return DEFAULT_STATE;
+    }
+
+    return parsed as AppState;
   } catch (e) {
     console.error('Failed to load state', e);
     return DEFAULT_STATE;

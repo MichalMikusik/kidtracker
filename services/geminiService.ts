@@ -1,9 +1,19 @@
 import { GoogleGenAI } from "@google/genai";
 import { DailyLog, Profile } from "../types";
 
-const apiKey = process.env.API_KEY || '';
+// Safely access process.env.API_KEY
+const getApiKey = () => {
+  try {
+    // @ts-ignore
+    return (typeof process !== 'undefined' && process.env?.API_KEY) || '';
+  } catch {
+    return '';
+  }
+};
 
 export const getHealthInsights = async (profile: Profile, logs: DailyLog[]) => {
+  const apiKey = getApiKey();
+  
   if (!apiKey) {
     console.warn("API Key missing for Gemini");
     return "Please configure your API Key to get AI insights.";
