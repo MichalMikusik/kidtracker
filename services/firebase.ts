@@ -22,7 +22,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyBFPcFwprFO5Zzc9RAP_9emzQc6B9YvNtY",
   authDomain: "kidcare-17eba.firebaseapp.com",
   projectId: "kidcare-17eba",
-  storageBucket: "kidcare-17eba.firebasestorage.app",
+  storageBucket: "kidcare-17eba.appspot.com",
   messagingSenderId: "394493467840",
   appId: "1:394493467840:web:b6168bc40343d397c12125",
   measurementId: "G-V53NX3V0FS"
