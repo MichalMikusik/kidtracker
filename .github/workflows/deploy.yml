@@ -83,6 +83,14 @@ jobs:
         run: terraform init
         working-directory: terraform
 
+      - name: Import Artifact Registry repo if it exists
+        run: |
+          terraform import \
+            google_artifact_registry_repository.kidtracker \
+            projects/${{ env.PROJECT_ID }}/locations/${{ env.REGION }}/repositories/kidtracker \
+          || true
+        working-directory: terraform
+
       - name: Terraform Apply
         run: |
           terraform apply -auto-approve \
