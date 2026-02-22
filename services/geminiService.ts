@@ -1,26 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { DailyLog, Profile } from "../types";
 
-// Safely access process.env.API_KEY
-const getApiKey = () => {
-  try {
-    // @ts-ignore
-    return (typeof process !== 'undefined' && process.env?.API_KEY) || '';
-  } catch {
-    return '';
-  }
-};
-
-export const getHealthInsights = async (profile: Profile, logs: DailyLog[]) => {
-  const apiKey = getApiKey();
-  
-  if (!apiKey) {
-    console.warn("API Key missing for Gemini");
-    return "Please configure your API Key to get AI insights.";
-  }
-
-  const ai = new GoogleGenAI({ apiKey });
-
+export const getHealthInsights = async (profile: Profile, logs: DailyLog[], token: string | undefined) => {
   // Filter for days with symptoms or high temperatures
   const sickLogs = logs.filter(l => 
     (l.symptoms && l.symptoms.length > 0) || 
@@ -49,13 +30,22 @@ export const getHealthInsights = async (profile: Profile, logs: DailyLog[]) => {
   `;
 
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
+    const response = await fetch('/api/insights', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ prompt, token })
     });
-    return response.text;
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch insights');
+    }
+    
+    const data = await response.json();
+    return data.text;
   } catch (error) {
-    console.error("Gemini API Error:", error);
+    console.error("API Error:", error);
     return "Unable to generate insights at this time.";
   }
 };

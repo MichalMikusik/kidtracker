@@ -1,0 +1,8 @@
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // This rule ensures users can ONLY see/edit their own data
+    match /users/{userId}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}

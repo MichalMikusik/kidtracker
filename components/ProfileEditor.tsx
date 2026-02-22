@@ -1,13 +1,16 @@
 
 import React, { useState, useRef } from 'react';
-import { Profile, AppState } from '../types';
+import { Profile, AccountProfile } from '../types';
+import { auth } from '../services/firebase';
 import { XMarkIcon } from './Icons';
 import { exportStateToJSON, importStateFromJSON, loadState, saveState } from '../services/storageService';
 
 interface ProfileEditorProps {
   profile: Profile;
+  accountProfile: AccountProfile | null;
   onSave: (updatedProfile: Profile) => void;
   onClose: () => void;
+  onDelete: (profileId: string) => void;
 }
 
 const AVATAR_COLORS = [
@@ -19,65 +22,59 @@ const AVATAR_COLORS = [
   'bg-slate-500'
 ];
 
-const ProfileEditor: React.FC<ProfileEditorProps> = ({ profile, onSave, onClose }) => {
+const ProfileEditor: React.FC<ProfileEditorProps> = ({ profile, accountProfile, onSave, onClose, onDelete }) => {
   const [name, setName] = useState(profile.name);
   const [color, setColor] = useState(profile.avatarColor);
-  const [dob, setDob] = useState(profile.dateOfBirth || '');
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [dob, setDob] = useState(() => {
+    if (!profile.dateOfBirth) return '';
+    const [year, month, day] = profile.dateOfBirth.split('-');
+    return `${day}/${month}/${year}`;
+  });
+  const [profilePicture, setProfilePicture] = useState(profile.profilePicture);
+  const [tempUnit, setTempUnit] = useState(accountProfile?.temperatureUnit || 'C');
+  const [currency, setCurrency] = useState(accountProfile?.currency || 'USD');
+  const pictureUploadRef = useRef<HTMLInputElement>(null);
 
   const handleSave = () => {
     if (!name.trim()) return;
+    
+    let isoDate = '';
+    if (dob) {
+      const [day, month, year] = dob.split('/');
+      if (day && month && year && day.length === 2 && month.length === 2 && year.length === 4) {
+        isoDate = `${year}-${month}-${day}`;
+      }
+    }
+
     onSave({
       ...profile,
       name: name.trim(),
       avatarColor: color,
-      dateOfBirth: dob
+      dateOfBirth: isoDate,
+      profilePicture
     });
     onClose();
   };
 
-  const handleBackup = () => {
-    const currentState = loadState();
-    const jsonString = exportStateToJSON(currentState);
-    const blob = new Blob([jsonString], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `kidcare-backup-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  const handleDelete = () => {
+    console.log("ProfileEditor: handleDelete called for profileId:", profile.id);
+    onDelete(profile.id);
+  }
+
+  const handlePictureUploadClick = () => {
+    pictureUploadRef.current?.click();
   };
 
-  const handleRestoreClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePictureFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
     reader.onload = (event) => {
-      const content = event.target?.result as string;
-      if (content) {
-        const newState = importStateFromJSON(content);
-        if (newState) {
-          if(confirm('This will overwrite all current data with the backup. Are you sure?')) {
-             saveState(newState);
-             window.location.reload(); // Reload to reflect changes
-          }
-        } else {
-          alert('Invalid backup file.');
-        }
-      }
+      const base64 = event.target?.result as string;
+      setProfilePicture(base64);
     };
-    reader.readAsText(file);
-    
-    // Reset input
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    reader.readAsDataURL(file);
   };
 
   return (
@@ -93,15 +90,38 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ profile, onSave, onClose 
         <div className="p-6 space-y-6 overflow-y-auto">
           {/* Avatar Selection */}
           <div className="flex flex-col items-center">
-            <div className={`w-20 h-20 rounded-full ${color} flex items-center justify-center text-white text-3xl font-bold mb-4 shadow-lg ring-4 ring-white`}>
-              {name.charAt(0) || '?'}
-            </div>
-            <div className="grid grid-cols-8 gap-2">
+            <button onClick={handlePictureUploadClick} className="relative">
+              {profilePicture ? (
+                <img src={profilePicture} className={`w-20 h-20 rounded-full object-cover bg-slate-100 flex items-center justify-center text-white text-3xl font-bold mb-4 shadow-lg ring-4 ring-white`} />
+              ) : (
+                <div className={`w-20 h-20 rounded-full ${color} flex items-center justify-center text-white text-3xl font-bold mb-4 shadow-lg ring-4 ring-white`}>
+                  {name.charAt(0) || '?'}
+                </div>
+              )}
+              <div className="absolute bottom-4 right-0 bg-white p-1 rounded-full shadow">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-slate-600" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" />
+                  <path fillRule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clipRule="evenodd" />
+                </svg>
+              </div>
+            </button>
+            <input 
+              type="file" 
+              ref={pictureUploadRef}
+              onChange={handlePictureFileChange}
+              accept="image/*"
+              className="hidden" 
+            />
+
+            <div className="grid grid-cols-8 gap-2 mt-4">
               {AVATAR_COLORS.map(c => (
                 <button
                   key={c}
-                  onClick={() => setColor(c)}
-                  className={`w-6 h-6 rounded-full ${c} ring-2 ring-offset-1 ${color === c ? 'ring-slate-800' : 'ring-transparent'}`}
+                  onClick={() => {
+                    setColor(c);
+                    setProfilePicture(undefined);
+                  }}
+                  className={`w-6 h-6 rounded-full ${c} ring-2 ring-offset-1 ${color === c && !profilePicture ? 'ring-slate-800' : 'ring-transparent'}`}
                 />
               ))}
             </div>
@@ -121,10 +141,20 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ profile, onSave, onClose 
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Date of Birth (Optional)</label>
               <input 
-                type="date"
+                type="text"
+                placeholder="DD/MM/YYYY"
                 className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                 value={dob}
-                onChange={e => setDob(e.target.value)}
+                onChange={e => {
+                    let input = e.target.value.replace(/[^0-9]/g, '');
+                    if (input.length > 2) {
+                        input = input.slice(0, 2) + '/' + input.slice(2);
+                    }
+                    if (input.length > 5) {
+                        input = input.slice(0, 5) + '/' + input.slice(5, 9);
+                    }
+                    setDob(input);
+                }}
               />
             </div>
           </div>
@@ -137,34 +167,12 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ profile, onSave, onClose 
           </button>
           
           <div className="pt-6 mt-2 border-t border-slate-100">
-             <h4 className="text-xs font-bold text-slate-400 uppercase mb-3 text-center">Data Management</h4>
-             <div className="grid grid-cols-2 gap-3">
-                 <button 
-                    onClick={handleBackup}
-                    className="flex flex-col items-center justify-center gap-1 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl p-3 text-slate-600 transition-colors"
-                 >
-                     <span className="text-xl">📥</span>
-                     <span className="text-xs font-bold">Backup Data</span>
-                 </button>
-                 <button 
-                    onClick={handleRestoreClick}
-                    className="flex flex-col items-center justify-center gap-1 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl p-3 text-slate-600 transition-colors"
-                 >
-                     <span className="text-xl">📤</span>
-                     <span className="text-xs font-bold">Restore Data</span>
-                 </button>
-             </div>
-             {/* Hidden File Input */}
-             <input 
-                type="file" 
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                accept=".json"
-                className="hidden" 
-             />
-             <p className="text-[10px] text-slate-400 text-center mt-3 leading-tight">
-               Download a backup file to save your data, or upload one to restore it on another device.
-             </p>
+             <button 
+                onClick={handleDelete}
+                className="w-full text-center text-sm text-red-500 font-bold py-2 hover:bg-red-50 rounded-lg"
+              >
+                Delete Profile
+              </button>
           </div>
         </div>
       </div>

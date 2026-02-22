@@ -191,7 +191,7 @@ const LogSheet: React.FC<LogSheetProps> = ({ date, existingLog, onSave, onClose,
                     <input 
                         type="number"
                         step="0.1"
-                        className="flex-1 text-center bg-white border border-slate-200 rounded-lg h-10 font-bold text-lg focus:outline-none"
+                        className="flex-1 text-center bg-white border border-slate-200 rounded-lg h-10 font-bold text-lg focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         value={newTempVal}
                         onChange={e => setNewTempVal(e.target.value)}
                     />

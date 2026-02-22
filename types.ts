@@ -21,6 +21,7 @@ export interface Profile {
   name: string;
   avatarColor: string;
   dateOfBirth?: string;
+  profilePicture?: string; // Base64 encoded image
 }
 
 export interface AppState {
@@ -35,4 +36,10 @@ export interface Stats {
   averageDuration: number; // in days
   meanTimeBetweenIllness: number; // in days
   commonSymptoms: Record<string, number>;
+}
+
+export interface AccountProfile {
+  status: 'pending' | 'approved';
+  isPremium: boolean;
+  email: string | null;
 }

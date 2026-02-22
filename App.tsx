@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { AppState, DailyLog, Profile } from './types';
+import { AppState, DailyLog, Profile, AccountProfile } from './types';
 import { loadState, saveState, generateDemoData } from './services/storageService';
-import { auth, loginWithGoogle, logout, subscribeToData, saveToFirebase } from './services/firebase';
+import { auth, loginWithGoogle, logout, subscribeToData, saveToFirebase, getUserAccountProfile } from './services/firebase';
 import { User } from 'firebase/auth';
 import CalendarView from './components/CalendarView';
 import StatsView from './components/StatsView';
 import HistoryView from './components/HistoryView';
 import LogSheet from './components/LogSheet';
 import ProfileEditor from './components/ProfileEditor';
+import UserSettings from './components/UserSettings';
 import InstallPrompt from './components/InstallPrompt';
 import { CalendarIcon, ChartBarIcon, SparklesIcon, PlusIcon, PencilIcon, ClockIcon, CloudIcon } from './components/Icons';
-import { getHealthInsights } from './services/geminiService';
 
 enum Tab {
   CALENDAR = 'CALENDAR',
@@ -22,6 +22,7 @@ enum Tab {
 function App() {
   // Auth State
   const [user, setUser] = useState<User | null>(null);
+  const [accountProfile, setAccountProfile] = useState<AccountProfile | null>(null);
   
   // App Data State - Initialize with local storage immediately for Guest Mode
   const [state, setState] = useState<AppState>(() => loadState());
@@ -30,6 +31,7 @@ function App() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [showLogSheet, setShowLogSheet] = useState(false);
   const [showProfileEditor, setShowProfileEditor] = useState(false);
+  const [showUserSettings, setShowUserSettings] = useState(false);
   
   // AI State
   const [aiInsight, setAiInsight] = useState<string>('');
@@ -39,6 +41,13 @@ function App() {
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (currentUser) => {
       setUser(currentUser);
+      
+      if (currentUser) {
+        const accProfile = await getUserAccountProfile(currentUser);
+        setAccountProfile(accProfile);
+      } else {
+        setAccountProfile(null);
+      }
       
       if (currentUser) {
         // User just logged in. 
@@ -83,8 +92,10 @@ function App() {
   const handleLogin = async () => {
       try {
           await loginWithGoogle();
-      } catch (e) {
-          alert("Could not sign in.");
+      } catch (e: any) {
+          if (e?.code !== 'auth/popup-closed-by-user') {
+            alert("Could not sign in.");
+          }
       }
   }
 
@@ -149,15 +160,18 @@ function App() {
   };
 
   const handleAddProfile = () => {
-     if(state.profiles.length >= 6) {
-         alert("Max profiles reached.");
+    const isPremium = accountProfile?.isPremium === true;
+    const limit = user ? (isPremium ? Infinity : 4) : 2;
+
+     if(state.profiles.length >= limit) {
+         alert(`Max profiles reached. ${user ? (isPremium ? '' : 'Upgrade to premium for unlimited profiles.') : 'Sign in to add more profiles.'}`);
          return;
      }
-     const newId = `p${state.profiles.length + 1}`;
+     const newId = `p${Date.now()}`;
      const newProfile: Profile = {
          id: newId,
          name: `Child ${state.profiles.length + 1}`,
-         avatarColor: ['bg-blue-400', 'bg-pink-400', 'bg-green-400', 'bg-yellow-400', 'bg-purple-400', 'bg-orange-400'][state.profiles.length]
+         avatarColor: ['bg-blue-400', 'bg-pink-400', 'bg-green-400', 'bg-yellow-400', 'bg-purple-400', 'bg-orange-400'][state.profiles.length % 6]
      };
      updateState({
          ...state,
@@ -174,10 +188,55 @@ function App() {
       });
   }
 
+  const handleDeleteProfile = (profileId: string) => {
+    console.log("App: handleDeleteProfile called for profileId:", profileId);
+    if (state.profiles.length <= 1) {
+      alert("You cannot delete the last profile.");
+      return;
+    }
+
+    if (window.confirm(`Are you sure you want to delete this profile? This cannot be undone.`)) {
+      const newProfiles = state.profiles.filter(p => p.id !== profileId);
+      const newLogs = { ...state.logs };
+      delete newLogs[profileId];
+
+      setShowProfileEditor(false);
+
+      updateState({
+        ...state,
+        profiles: newProfiles,
+        logs: newLogs,
+        currentProfileId: newProfiles[0].id // Switch to the first available profile
+      });
+    }
+  }
+
+  const handleUpdateSettings = (settings: Partial<AccountProfile>) => {
+    if (accountProfile) {
+      setAccountProfile({ ...accountProfile, ...settings });
+      // In a real app, you'd save this to Firestore here
+    }
+  };
+
+  const handleSync = async () => {
+      if (user) {
+          try {
+            await saveToFirebase(user, state);
+            alert("Sync complete! Your data is saved to the cloud.");
+          } catch (error) {
+            console.error("Sync failed:", error);
+            alert("Sync failed. Please check your connection and try again.");
+          }
+      } else {
+        alert("You must be logged in to sync data.");
+      }
+  };
+
   const handleFetchInsights = async () => {
       setLoadingAi(true);
       const logs = Object.values(currentLogs) as DailyLog[];
-      const text = await getHealthInsights(currentProfile, logs);
+      const token = await user?.getIdToken();
+      const text = await getHealthInsights(currentProfile, logs, token);
       setAiInsight(text);
       setLoadingAi(false);
   }
@@ -210,9 +269,10 @@ function App() {
                       <button 
                         key={p.id}
                         onClick={() => updateState({ ...state, currentProfileId: p.id })}
-                        className={`h-10 w-10 rounded-full border-2 border-white ${p.avatarColor} flex items-center justify-center text-white font-bold text-xs relative ${currentProfile.id === p.id ? 'ring-2 ring-indigo-500 ring-offset-2 z-10' : 'opacity-70 hover:opacity-100 transition-opacity'}`}
+                        className={`h-10 w-10 rounded-full border-2 border-white flex items-center justify-center text-white font-bold text-xs relative ${currentProfile.id === p.id ? 'ring-2 ring-indigo-500 ring-offset-2 z-10' : 'opacity-70 hover:opacity-100 transition-opacity'} ${p.profilePicture ? '' : p.avatarColor}`}
+                        style={p.profilePicture ? { backgroundImage: `url(${p.profilePicture})`, backgroundSize: 'cover' } : {}}
                       >
-                          {p.name[0]}
+                        {!p.profilePicture && p.name[0]}
                       </button>
                   ))}
                   <button onClick={handleAddProfile} className="h-8 w-8 ml-3 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center hover:bg-slate-200">
@@ -222,19 +282,20 @@ function App() {
                
                {user ? (
                    <button 
-                        onClick={logout} 
-                        className="text-xs font-bold text-slate-400 hover:text-red-500 transition-colors ml-2"
-                        title="Log Out"
+                        onClick={() => setShowUserSettings(true)} 
+                        className="h-8 w-8 ml-2 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center hover:bg-slate-200"
+                        title="User Settings"
                    >
-                       Log Out
+                       <div className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold">
+                           {user.email?.charAt(0).toUpperCase()}
+                       </div>
                    </button>
                ) : (
                    <button 
                         onClick={handleLogin} 
-                        className="flex items-center gap-2 bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-full hover:bg-indigo-100 transition-colors ml-2"
+                        className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-1.5 rounded-full hover:bg-indigo-700 transition-colors ml-2 shadow-sm shadow-indigo-200"
                    >
-                       <CloudIcon className="w-4 h-4" />
-                       <span className="text-xs font-bold">Sync</span>
+                       <span className="text-xs font-bold">Log In</span>
                    </button>
                )}
            </div>
@@ -412,7 +473,17 @@ function App() {
             profile={currentProfile}
             onSave={handleUpdateProfile}
             onClose={() => setShowProfileEditor(false)}
+            onDelete={handleDeleteProfile}
           />
+      )}
+
+      {showUserSettings && (
+        <UserSettings 
+            accountProfile={accountProfile}
+            onClose={() => setShowUserSettings(false)}
+            onUpdateSettings={handleUpdateSettings}
+            onSync={handleSync}
+        />
       )}
 
     </div>

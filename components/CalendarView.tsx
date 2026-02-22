@@ -13,7 +13,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ logs, onDateSelect, selecte
   const [currentDate, setCurrentDate] = useState(new Date());
 
   const daysInMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
-  const firstDayOfMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+  const firstDayOfMonth = (date: Date) => (new Date(date.getFullYear(), date.getMonth(), 1).getDay() + 6) % 7;
 
   const monthName = currentDate.toLocaleString('default', { month: 'long' });
   const year = currentDate.getFullYear();
@@ -90,7 +90,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ logs, onDateSelect, selecte
 
       {/* Days Header */}
       <div className="grid grid-cols-7 mb-4">
-        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d, i) => (
+        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d, i) => (
           <div key={i} className="text-center text-[10px] font-bold text-slate-400 uppercase tracking-wider">
             {d}
           </div>

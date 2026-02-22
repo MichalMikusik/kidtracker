@@ -15,7 +15,7 @@ import {
   onSnapshot, 
   getDoc 
 } from "firebase/firestore";
-import { AppState } from "../types";
+import { AppState, AccountProfile } from "../types";
 
 // --- CONFIGURATION START ---
 const firebaseConfig = {
@@ -40,9 +40,23 @@ const GOOGLE_PROVIDER = new GoogleAuthProvider();
 export const loginWithGoogle = async () => {
   try {
     await signInWithPopup(auth, GOOGLE_PROVIDER);
-  } catch (error) {
+  } catch (error: any) {
+    if (error.code === 'auth/popup-closed-by-user') {
+      console.log("Login canceled by user");
+      return; // Exit gracefully
+    }
+    
     console.error("Login failed", error);
-    alert("Login failed. Please try again.");
+    if (error.code === 'auth/unauthorized-domain') {
+      alert("Login failed: This domain is not authorized. Please add it to your Firebase Console > Authentication > Settings > Authorized Domains.");
+    } else if (error.code === 'auth/api-key-not-valid') {
+      alert("Login failed: The Firebase API key is invalid. Please check your configuration.");
+    } else if (error.message.includes("The requested action is invalid")) {
+       alert("Login failed: The Firebase project configuration appears to be invalid or the project has been deleted. Please update services/firebase.ts with your own valid Firebase configuration.");
+    } else {
+      // Re-throw other errors to be handled by the caller (e.g. popup closed)
+      throw error;
+    }
   }
 };
 
@@ -94,4 +108,21 @@ export const migrateLocalToFirebase = async (user: User, localState: AppState) =
     return true;
   }
   return false;
+};
+
+export const getUserAccountProfile = async (user: User): Promise<AccountProfile> => {
+  const docRef = doc(db, "users", user.uid, "account", "profile");
+  const snap = await getDoc(docRef);
+  
+  if (snap.exists()) {
+    return snap.data() as AccountProfile;
+  } else {
+    const newProfile: AccountProfile = {
+      status: 'pending',
+      isPremium: false,
+      email: user.email
+    };
+    await setDoc(docRef, newProfile);
+    return newProfile;
+  }
 };
