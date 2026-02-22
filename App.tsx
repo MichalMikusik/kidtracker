@@ -10,7 +10,7 @@ import LogSheet from './components/LogSheet';
 import ProfileEditor from './components/ProfileEditor';
 import UserSettings from './components/UserSettings';
 import InstallPrompt from './components/InstallPrompt';
-import { CalendarIcon, ChartBarIcon, SparklesIcon, PlusIcon, PencilIcon, ClockIcon, CloudIcon } from './components/Icons';
+import { CalendarIcon, ChartBarIcon, SparklesIcon, PlusIcon, PencilIcon, ClockIcon } from './components/Icons';
 
 enum Tab {
   CALENDAR = 'CALENDAR',
@@ -219,20 +219,6 @@ function App() {
         saveUserAccountProfile(user, updated);
       }
     }
-  };
-
-  const handleSync = async () => {
-      if (user) {
-          try {
-            await saveToFirebase(user, state);
-            alert("Sync complete! Your data is saved to the cloud.");
-          } catch (error) {
-            console.error("Sync failed:", error);
-            alert("Sync failed. Please check your connection and try again.");
-          }
-      } else {
-        alert("You must be logged in to sync data.");
-      }
   };
 
   const handleFetchInsights = async () => {
@@ -486,7 +472,6 @@ function App() {
             accountProfile={accountProfile}
             onClose={() => setShowUserSettings(false)}
             onUpdateSettings={handleUpdateSettings}
-            onSync={handleSync}
         />
       )}
 

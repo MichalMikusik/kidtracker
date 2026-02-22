@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { AccountProfile } from '../types';
-import { XMarkIcon, CloudIcon } from './Icons';
+import { XMarkIcon } from './Icons';
 import { auth, logout } from '../services/firebase';
 import { exportStateToJSON, importStateFromJSON, loadState, saveState } from '../services/storageService';
 
@@ -8,10 +8,9 @@ interface UserSettingsProps {
   accountProfile: AccountProfile | null;
   onClose: () => void;
   onUpdateSettings: (settings: Partial<AccountProfile>) => void;
-  onSync: () => void;
 }
 
-const UserSettings: React.FC<UserSettingsProps> = ({ accountProfile, onClose, onUpdateSettings, onSync }) => {
+const UserSettings: React.FC<UserSettingsProps> = ({ accountProfile, onClose, onUpdateSettings }) => {
   const [tempUnit, setTempUnit] = useState<'C' | 'F'>(accountProfile?.temperatureUnit || 'C');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -111,19 +110,15 @@ const UserSettings: React.FC<UserSettingsProps> = ({ accountProfile, onClose, on
             </div>
           </div>
 
-          {/* Sync */}
+          {/* Auto-sync indicator */}
           <div className="pt-4 border-t border-slate-100">
-             <h4 className="text-xs font-bold text-slate-400 uppercase mb-3">Data Sync</h4>
-             <button 
-                onClick={onSync}
-                className="w-full flex items-center justify-center gap-2 bg-indigo-50 text-indigo-600 font-bold py-3 rounded-xl hover:bg-indigo-100 transition-colors"
-             >
-                 <CloudIcon className="w-5 h-5" />
-                 Sync All Data Now
-             </button>
-             <p className="text-[10px] text-slate-400 text-center mt-2">
-               Syncs all profiles and logs to the cloud.
-             </p>
+            <div className="flex items-center gap-2 bg-green-50 border border-green-100 rounded-xl px-4 py-3">
+              <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse flex-shrink-0" />
+              <div>
+                <p className="text-xs font-bold text-green-800">Auto-Sync Active</p>
+                <p className="text-[10px] text-green-600">Your data is automatically saved to the cloud in real-time.</p>
+              </div>
+            </div>
           </div>
 
           {/* Data Management */}
@@ -154,7 +149,7 @@ const UserSettings: React.FC<UserSettingsProps> = ({ accountProfile, onClose, on
                 className="hidden" 
              />
              <p className="text-[10px] text-slate-400 text-center mt-3 leading-tight">
-               Download a backup file to save your data, or upload one to restore it on another device.
+               Export your data as a JSON file, or import a previous backup.
              </p>
           </div>
 

@@ -46,7 +46,7 @@ app.post("/api/insights", async (req, res) => {
     // Fetch account profile via Firestore REST (user's own token — allowed by security rules)
     try {
       const projectId = process.env.GOOGLE_CLOUD_PROJECT || "kidcare-17eba";
-      const firestoreUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${decodedToken.uid}/account/profile`;
+      const firestoreUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/kidcare/documents/users/${decodedToken.uid}/account/profile`;
       const profileRes = await fetch(firestoreUrl, {
         headers: { Authorization: `Bearer ${token}` },
       });

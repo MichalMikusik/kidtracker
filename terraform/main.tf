@@ -100,3 +100,5 @@ resource "google_artifact_registry_repository_iam_member" "github_push" {
   role       = "roles/artifactregistry.writer"
   member     = "serviceAccount:github-actions-sa@${var.project_id}.iam.gserviceaccount.com"
 }
+
+
