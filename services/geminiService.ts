@@ -30,7 +30,10 @@ export const getHealthInsights = async (profile: Profile, logs: DailyLog[], toke
   `;
 
   try {
-    const response = await fetch('/api/insights', {
+    // In dev, Vite proxies /api to localhost:3001.
+    // In production, VITE_API_BASE_URL is set to the Cloud Run URL.
+    const apiBase = import.meta.env.VITE_API_BASE_URL || '';
+    const response = await fetch(`${apiBase}/api/insights`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'

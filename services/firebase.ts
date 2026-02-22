@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
 import { 
@@ -18,14 +19,16 @@ import {
 import { AppState, AccountProfile } from "../types";
 
 // --- CONFIGURATION START ---
+// Values are read from .env.local (development) or the build-time env (CI/CD)
+// See .env.example for required variable names
 const firebaseConfig = {
-  apiKey: "AIzaSyBFPcFwprFO5Zzc9RAP_9emzQc6B9YvNtY",
-  authDomain: "kidcare-17eba.firebaseapp.com",
-  projectId: "kidcare-17eba",
-  storageBucket: "kidcare-17eba.appspot.com",
-  messagingSenderId: "394493467840",
-  appId: "1:394493467840:web:b6168bc40343d397c12125",
-  measurementId: "G-V53NX3V0FS"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 // --- CONFIGURATION END ---
 
@@ -113,16 +116,26 @@ export const migrateLocalToFirebase = async (user: User, localState: AppState) =
 export const getUserAccountProfile = async (user: User): Promise<AccountProfile> => {
   const docRef = doc(db, "users", user.uid, "account", "profile");
   const snap = await getDoc(docRef);
-  
+
   if (snap.exists()) {
     return snap.data() as AccountProfile;
   } else {
     const newProfile: AccountProfile = {
       status: 'pending',
       isPremium: false,
-      email: user.email
+      email: user.email,
+      temperatureUnit: 'C',
+      currency: 'EUR',
     };
     await setDoc(docRef, newProfile);
     return newProfile;
+  }
+};
+export const saveUserAccountProfile = async (user: User, profile: AccountProfile): Promise<void> => {
+  const docRef = doc(db, "users", user.uid, "account", "profile");
+  try {
+    await setDoc(docRef, profile, { merge: true });
+  } catch (e) {
+    console.error("Error saving account profile", e);
   }
 };

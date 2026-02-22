@@ -1,0 +1,130 @@
+# KidTracker — Deploy to GCP (Cloud Run API + Firebase Hosting frontend)
+#
+# Prerequisites (one-time, done before first run):
+#   1. Grant Firebase Hosting Admin to the runner SA:
+#      gcloud projects add-iam-policy-binding kidcare-17eba \
+#        --member="serviceAccount:github-actions-sa@kidcare-17eba.iam.gserviceaccount.com" \
+#        --role="roles/firebasehosting.admin"
+#
+#   2. Required GitHub Secrets (Settings → Secrets → Actions):
+#      GCP_WORKLOAD_IDENTITY_PROVIDER
+#      GCP_SERVICE_ACCOUNT
+#      GEMINI_API_KEY
+#
+# After the FIRST successful deploy:
+#   - Copy the Cloud Run URL from the Actions log (terraform output cloud_run_url)
+#   - Set it in .env.production as VITE_API_BASE_URL and commit
+#   - Subsequent deploys will pick it up automatically from terraform outputs
+
+name: Deploy to GCP
+
+on:
+  push:
+    branches: [main]
+
+env:
+  PROJECT_ID: kidcare-17eba
+  REGION: europe-west1
+  IMAGE: europe-west1-docker.pkg.dev/kidcare-17eba/kidtracker/api
+
+jobs:
+  # ─── Job 1: Build Docker image, push to Artifact Registry, apply Terraform ───
+  deploy-backend:
+    name: Build & Deploy API → Cloud Run
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write  # Required for Workload Identity Federation
+    outputs:
+      cloud_run_url: ${{ steps.tf_output.outputs.cloud_run_url }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Build and push Docker image
+        run: |
+          docker build -t ${{ env.IMAGE }}:${{ github.sha }} -t ${{ env.IMAGE }}:latest .
+          docker push ${{ env.IMAGE }}:${{ github.sha }}
+          docker push ${{ env.IMAGE }}:latest
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: terraform
+
+      - name: Terraform Apply
+        run: |
+          terraform apply -auto-approve \
+            -var="image_tag=${{ github.sha }}" \
+            -var="gemini_api_key=${{ secrets.GEMINI_API_KEY }}"
+        working-directory: terraform
+
+      - name: Export Cloud Run URL
+        id: tf_output
+        run: |
+          URL=$(terraform output -raw cloud_run_url)
+          echo "cloud_run_url=$URL" >> $GITHUB_OUTPUT
+          echo "cloud_run_url=$URL" >> $GITHUB_STEP_SUMMARY
+        working-directory: terraform
+
+  # ─── Job 2: Build Vite frontend, deploy to Firebase Hosting ──────────────────
+  deploy-frontend:
+    name: Build & Deploy Frontend → Firebase Hosting
+    runs-on: ubuntu-latest
+    needs: deploy-backend  # Waits for backend job so we have the Cloud Run URL
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+        env:
+          # Override the placeholder VITE_API_BASE_URL in .env.production
+          # with the actual Cloud Run URL from the backend job
+          VITE_API_BASE_URL: ${{ needs.deploy-backend.outputs.cloud_run_url }}
+
+      - name: Deploy to Firebase Hosting
+        run: npx firebase-tools@latest deploy --only hosting --project ${{ env.PROJECT_ID }} --non-interactive
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}

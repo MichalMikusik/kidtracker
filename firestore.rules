@@ -1,6 +1,42 @@
 service cloud.firestore {
   match /databases/{database}/documents {
-    // This rule ensures users can ONLY see/edit their own data
+
+    // Returns true if the user has a premium account.
+    // isPremium is set only via Admin SDK (Firebase Console / backend) — clients cannot elevate it.
+    function isPremium(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)/account/profile).data.isPremium == true;
+    }
+
+    // --- Account profile ---
+    // Clients can update their own profile (temperatureUnit, currency, etc.)
+    // but CANNOT grant themselves premium — that is admin-only.
+    match /users/{userId}/account/profile {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null && request.auth.uid == userId
+        && (
+          // isPremium field not being changed, OR
+          !('isPremium' in request.resource.data)
+          // being set to false (downgrade is fine), OR
+          || request.resource.data.isPremium == false
+          // current value is already true and client is preserving it (not self-granting)
+          || (resource != null && resource.data.isPremium == true && request.resource.data.isPremium == true)
+        );
+    }
+
+    // --- Tracker state ---
+    // Free users: maximum 4 profiles.
+    // Premium users: unlimited profiles.
+    match /users/{userId}/data/trackerState {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null && request.auth.uid == userId
+        && (
+          isPremium(userId)
+          || !('profiles' in request.resource.data)
+          || request.resource.data.profiles.size() <= 4
+        );
+    }
+
+    // All other user sub-collections: standard owner-only access
     match /users/{userId}/{document=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }

@@ -3,7 +3,6 @@ import React, { useState, useRef } from 'react';
 import { Profile, AccountProfile } from '../types';
 import { auth } from '../services/firebase';
 import { XMarkIcon } from './Icons';
-import { exportStateToJSON, importStateFromJSON, loadState, saveState } from '../services/storageService';
 
 interface ProfileEditorProps {
   profile: Profile;

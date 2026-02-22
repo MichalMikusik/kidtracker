@@ -42,4 +42,6 @@ export interface AccountProfile {
   status: 'pending' | 'approved';
   isPremium: boolean;
   email: string | null;
+  temperatureUnit: 'C' | 'F';
+  currency: 'USD' | 'EUR' | 'GBP';
 }

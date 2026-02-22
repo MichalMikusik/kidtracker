@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AppState, DailyLog, Profile, AccountProfile } from './types';
 import { loadState, saveState, generateDemoData } from './services/storageService';
-import { auth, loginWithGoogle, logout, subscribeToData, saveToFirebase, getUserAccountProfile } from './services/firebase';
+import { auth, loginWithGoogle, logout, subscribeToData, saveToFirebase, getUserAccountProfile, saveUserAccountProfile } from './services/firebase';
 import { User } from 'firebase/auth';
 import CalendarView from './components/CalendarView';
 import StatsView from './components/StatsView';
@@ -213,8 +213,11 @@ function App() {
 
   const handleUpdateSettings = (settings: Partial<AccountProfile>) => {
     if (accountProfile) {
-      setAccountProfile({ ...accountProfile, ...settings });
-      // In a real app, you'd save this to Firestore here
+      const updated = { ...accountProfile, ...settings };
+      setAccountProfile(updated);
+      if (user) {
+        saveUserAccountProfile(user, updated);
+      }
     }
   };
 
@@ -471,6 +474,7 @@ function App() {
       {showProfileEditor && (
           <ProfileEditor 
             profile={currentProfile}
+            accountProfile={accountProfile}
             onSave={handleUpdateProfile}
             onClose={() => setShowProfileEditor(false)}
             onDelete={handleDeleteProfile}

@@ -1,0 +1,39 @@
+# Git
+.git/
+.gitignore
+
+# Node
+node_modules/
+
+# Frontend build output (not needed in container)
+dist/
+
+# Frontend source (not needed in container)
+src/
+components/
+App.tsx
+index.tsx
+index.html
+manifest.json
+public/
+
+# Config files not needed at runtime
+vite.config.ts
+firebase.json
+firestore.rules
+
+# Infrastructure
+terraform/
+.github/
+
+# Env files (injected at runtime via Cloud Run env vars)
+.env*
+!.env.example
+
+# Docs
+*.md
+README*
+
+# OS
+.DS_Store
+Thumbs.db

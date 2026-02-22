@@ -28,6 +28,21 @@ yarn-error.log*
 !.vscode/extensions.json
 .idea
 *.suo
+
+# Terraform
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.backup
+*.tfvars
+!*.tfvars.example
+
+# GCP service account keys - NEVER commit
+serviceAccountKey.json
+*-credentials.json
+
+# TypeScript build info
+*.tsbuildinfo
 *.ntvs
 *.njsproj
 *.sln
