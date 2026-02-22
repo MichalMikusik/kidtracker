@@ -71,9 +71,10 @@ jobs:
           # Import if not already in state (handles pre-existing repo)
           terraform state show google_artifact_registry_repository.kidtracker > /dev/null 2>&1 \
             || terraform import \
+                -var="image_tag=${{ github.sha }}" \
+                -var="gemini_api_key=${{ secrets.GEMINI_API_KEY }}" \
                 google_artifact_registry_repository.kidtracker \
-                projects/${{ env.PROJECT_ID }}/locations/${{ env.REGION }}/repositories/kidtracker \
-            || true
+                projects/${{ env.PROJECT_ID }}/locations/${{ env.REGION }}/repositories/kidtracker
           terraform apply -auto-approve \
             -target=google_artifact_registry_repository.kidtracker \
             -var="image_tag=${{ github.sha }}" \
