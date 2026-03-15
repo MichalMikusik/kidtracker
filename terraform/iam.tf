@@ -15,7 +15,6 @@ resource "google_project_iam_member" "github_sa_roles" {
     "roles/datastore.owner",
     "roles/run.admin",
     "roles/firebasehosting.admin",
-    "roles/iam.projectIamAdmin",
     "roles/iam.serviceAccountAdmin",
     "roles/iam.serviceAccountUser",
     "roles/serviceusage.serviceUsageConsumer",
