@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AppState, DailyLog, Profile, AccountProfile } from './types';
-import { loadState, saveState, generateDemoData } from './services/storageService';
+import { loadState, saveState, generateDemoData, DEFAULT_STATE } from './services/storageService';
 import { auth, loginWithGoogle, logout, subscribeToData, saveToFirebase, getUserAccountProfile, saveUserAccountProfile } from './services/firebase';
 import { getHealthInsights } from './services/geminiService';
 import { User } from 'firebase/auth';
@@ -55,7 +55,10 @@ function App() {
         const accProfile = await getUserAccountProfile(currentUser);
         setAccountProfile(accProfile);
       } else {
+        // Logged out: reset to clean guest state
         setAccountProfile(null);
+        setState(DEFAULT_STATE);
+        saveState(DEFAULT_STATE);
       }
       
       if (currentUser) {

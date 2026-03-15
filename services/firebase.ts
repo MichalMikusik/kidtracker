@@ -88,13 +88,24 @@ export const subscribeToData = (
   }, onError);
 };
 
+// Recursively strip undefined values (Firestore rejects undefined)
+const stripUndefined = (obj: any): any => {
+  if (Array.isArray(obj)) return obj.map(stripUndefined);
+  if (obj !== null && typeof obj === 'object') {
+    return Object.fromEntries(
+      Object.entries(obj)
+        .filter(([_, v]) => v !== undefined)
+        .map(([k, v]) => [k, stripUndefined(v)])
+    );
+  }
+  return obj;
+};
+
 export const saveToFirebase = async (user: User, state: AppState) => {
   if (!user) return;
   const docRef = doc(db, "users", user.uid, "data", "trackerState");
   try {
-    // Merge true allows us to update partial fields if we wanted, 
-    // but here we sync the whole state to ensure consistency.
-    await setDoc(docRef, state, { merge: true });
+    await setDoc(docRef, stripUndefined(state));
   } catch (e) {
     console.error("Error saving to Firebase", e);
   }

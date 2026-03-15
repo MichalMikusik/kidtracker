@@ -24,6 +24,7 @@ const LogSheet: React.FC<LogSheetProps> = ({ date, existingLog, onSave, onClose,
   
   const [newTempVal, setNewTempVal] = useState('37.0');
   const [newTempTime, setNewTempTime] = useState('');
+  const [tempTouched, setTempTouched] = useState(false);
 
   const [customSymptom, setCustomSymptom] = useState('');
 
@@ -34,6 +35,7 @@ const LogSheet: React.FC<LogSheetProps> = ({ date, existingLog, onSave, onClose,
     setMeds(existingLog?.medications || []);
     setTemps(existingLog?.temperatures || []);
     setNewTempVal('37.0');
+    setTempTouched(false);
     
     // Default time for new temp to now
     const now = new Date();
@@ -81,6 +83,7 @@ const LogSheet: React.FC<LogSheetProps> = ({ date, existingLog, onSave, onClose,
   const adjustTemp = (delta: number) => {
       const current = parseFloat(newTempVal) || 37.0;
       setNewTempVal((current + delta).toFixed(1));
+      setTempTouched(true);
   }
 
   const removeTemp = (index: number) => {
@@ -88,9 +91,9 @@ const LogSheet: React.FC<LogSheetProps> = ({ date, existingLog, onSave, onClose,
   }
 
   const handleSave = () => {
-    // Auto-include any pending temperature/medication from the input fields
+    // Only auto-include pending temp if the user actually interacted with the input
     let finalTemps = [...temps];
-    if (newTempVal && newTempTime) {
+    if (tempTouched && newTempVal && newTempTime) {
       finalTemps = [...finalTemps, { value: parseFloat(newTempVal), time: newTempTime }]
         .sort((a, b) => a.time.localeCompare(b.time));
     }
@@ -209,7 +212,7 @@ const LogSheet: React.FC<LogSheetProps> = ({ date, existingLog, onSave, onClose,
                         step="0.1"
                         className="flex-1 text-center bg-white border border-slate-200 rounded-lg h-10 font-bold text-lg focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         value={newTempVal}
-                        onChange={e => setNewTempVal(e.target.value)}
+                        onChange={e => { setNewTempVal(e.target.value); setTempTouched(true); }}
                     />
                     <button onClick={() => adjustTemp(0.1)} className="w-10 h-10 bg-white border border-slate-200 rounded-lg font-bold text-slate-500 hover:bg-slate-100 active:bg-slate-200">+</button>
                   </div>

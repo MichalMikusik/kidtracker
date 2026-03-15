@@ -16,6 +16,8 @@ const DEFAULT_STATE: AppState = {
   currentProfileId: 'p1',
 };
 
+export { DEFAULT_STATE };
+
 export const loadState = (): AppState => {
   try {
     const serialized = localStorage.getItem(STORAGE_KEY);
