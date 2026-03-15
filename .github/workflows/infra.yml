@@ -69,34 +69,59 @@ jobs:
           jq -n --arg content "$(cat firestore.rules)" \
             '{source: {files: [{name: "firestore.rules", content: $content}]}}' > /tmp/ruleset.json
 
-          RULESET_RESPONSE=$(curl -sf -X POST \
+          echo "--- Creating ruleset ---"
+          RULESET_RESPONSE=$(curl -sS -w "\nHTTP_STATUS:%{http_code}" -X POST \
             "https://firebaserules.googleapis.com/v1/projects/${{ env.PROJECT_ID }}/rulesets" \
             -H "Authorization: Bearer ${ACCESS_TOKEN}" \
             -H "Content-Type: application/json" \
             -d @/tmp/ruleset.json)
 
-          RULESET_NAME=$(echo "$RULESET_RESPONSE" | jq -r '.name')
-          echo "Created ruleset: $RULESET_NAME"
+          HTTP_STATUS=$(echo "$RULESET_RESPONSE" | tail -1 | sed 's/HTTP_STATUS://')
+          BODY=$(echo "$RULESET_RESPONSE" | sed '$d')
+          echo "HTTP $HTTP_STATUS"
+          echo "$BODY"
 
-          if [ "$RULESET_NAME" = "null" ] || [ -z "$RULESET_NAME" ]; then
-            echo "ERROR: Failed to create ruleset"
-            echo "$RULESET_RESPONSE"
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "ERROR: Create ruleset returned HTTP $HTTP_STATUS"
             exit 1
           fi
+
+          RULESET_NAME=$(echo "$BODY" | jq -r '.name')
+          echo "Created ruleset: $RULESET_NAME"
 
           RELEASE_BODY=$(jq -n --arg name "projects/${{ env.PROJECT_ID }}/releases/cloud.firestore/kidcare" \
             --arg ruleset "$RULESET_NAME" \
             '{release: {name: $name, rulesetName: $ruleset}}')
 
-          curl -sf -X PATCH \
+          echo "--- Updating release (PATCH) ---"
+          PATCH_RESPONSE=$(curl -sS -w "\nHTTP_STATUS:%{http_code}" -X PATCH \
             "https://firebaserules.googleapis.com/v1/projects/${{ env.PROJECT_ID }}/releases/cloud.firestore%2Fkidcare" \
             -H "Authorization: Bearer ${ACCESS_TOKEN}" \
             -H "Content-Type: application/json" \
-            -d "$RELEASE_BODY" \
-          || curl -sf -X POST \
-            "https://firebaserules.googleapis.com/v1/projects/${{ env.PROJECT_ID }}/releases" \
-            -H "Authorization: Bearer ${ACCESS_TOKEN}" \
-            -H "Content-Type: application/json" \
-            -d "$RELEASE_BODY"
+            -d "$RELEASE_BODY")
+
+          PATCH_STATUS=$(echo "$PATCH_RESPONSE" | tail -1 | sed 's/HTTP_STATUS://')
+          PATCH_BODY=$(echo "$PATCH_RESPONSE" | sed '$d')
+          echo "PATCH HTTP $PATCH_STATUS"
+          echo "$PATCH_BODY"
+
+          if [ "$PATCH_STATUS" != "200" ]; then
+            echo "--- PATCH failed, trying POST ---"
+            POST_RESPONSE=$(curl -sS -w "\nHTTP_STATUS:%{http_code}" -X POST \
+              "https://firebaserules.googleapis.com/v1/projects/${{ env.PROJECT_ID }}/releases" \
+              -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "$RELEASE_BODY")
+
+            POST_STATUS=$(echo "$POST_RESPONSE" | tail -1 | sed 's/HTTP_STATUS://')
+            POST_BODY=$(echo "$POST_RESPONSE" | sed '$d')
+            echo "POST HTTP $POST_STATUS"
+            echo "$POST_BODY"
+
+            if [ "$POST_STATUS" != "200" ]; then
+              echo "ERROR: Both PATCH and POST failed"
+              exit 1
+            fi
+          fi
 
           echo "Firestore rules deployed to kidcare database"
