@@ -88,16 +88,26 @@ const LogSheet: React.FC<LogSheetProps> = ({ date, existingLog, onSave, onClose,
   }
 
   const handleSave = () => {
-    // If empty, we can just delete or save empty log. 
-    // Logic: if all fields empty, it essentially deletes the day from being "sick" or tracked.
-    if (symptoms.length === 0 && meds.length === 0 && temps.length === 0 && !notes.trim()) {
+    // Auto-include any pending temperature/medication from the input fields
+    let finalTemps = [...temps];
+    if (newTempVal && newTempTime) {
+      finalTemps = [...finalTemps, { value: parseFloat(newTempVal), time: newTempTime }]
+        .sort((a, b) => a.time.localeCompare(b.time));
+    }
+
+    let finalMeds = [...meds];
+    if (newMedName.trim() && newMedDose.trim()) {
+      finalMeds = [...finalMeds, { name: newMedName.trim(), dosage: newMedDose.trim() }];
+    }
+
+    if (symptoms.length === 0 && finalMeds.length === 0 && finalTemps.length === 0 && !notes.trim()) {
         onDelete(date);
     } else {
         onSave({
             date,
             symptoms,
-            medications: meds,
-            temperatures: temps,
+            medications: finalMeds,
+            temperatures: finalTemps,
             notes
         });
     }
@@ -123,8 +133,14 @@ const LogSheet: React.FC<LogSheetProps> = ({ date, existingLog, onSave, onClose,
         <div className="p-6 pt-2 pb-10 space-y-8">
           <div className="flex justify-between items-center border-b border-slate-100 pb-4">
              <h2 className="text-2xl font-bold text-slate-800">{displayDate}</h2>
-             <button onClick={() => onDelete(date)} className="text-red-400 text-sm font-medium px-2 py-1 rounded hover:bg-red-50">Clear Day</button>
           </div>
+
+          <button 
+            onClick={handleSave}
+            className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl shadow-lg hover:bg-slate-800 active:scale-[0.98] transition-all"
+          >
+            Save Log
+          </button>
 
           {/* Symptoms */}
           <div className="space-y-3">
@@ -262,10 +278,10 @@ const LogSheet: React.FC<LogSheetProps> = ({ date, existingLog, onSave, onClose,
           </div>
 
           <button 
-            onClick={handleSave}
-            className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl shadow-lg hover:bg-slate-800 active:scale-[0.98] transition-all"
+            onClick={() => { onDelete(date); onClose(); }}
+            className="w-full text-red-400 text-sm font-medium py-3 rounded-xl hover:bg-red-50 transition-colors"
           >
-            Save Log
+            Clear Day
           </button>
         </div>
       </div>
