@@ -109,7 +109,7 @@ function App() {
   // Safety fallback if state is completely missing or corrupted
   if (!state || !state.profiles || state.profiles.length === 0) {
       return (
-        <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center gap-4">
+        <div className="min-h-screen bg-white flex flex-col items-center justify-center gap-4">
             <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
             <button 
                 onClick={() => { localStorage.clear(); window.location.reload(); }}
@@ -241,7 +241,7 @@ function App() {
   }, [state.currentProfileId]);
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-24 md:pb-0 font-sans">
+    <div className="min-h-screen bg-white pb-24 md:pb-0 font-sans">
       
       {/* Top Bar */}
       <div className="bg-white px-6 pt-12 pb-4 shadow-sm sticky top-0 z-30">
