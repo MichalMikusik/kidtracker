@@ -68,6 +68,12 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ profile, accountProfile, 
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Limit to 500KB to avoid blowing up localStorage (~5MB) and Firestore doc limits (1MB)
+    if (file.size > 500 * 1024) {
+      alert('Image is too large. Please choose a picture under 500KB.');
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (event) => {
       const base64 = event.target?.result as string;

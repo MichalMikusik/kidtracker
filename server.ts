@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import { GoogleGenAI } from "@google/genai";
 import * as admin from "firebase-admin";
+import { getFirestore } from "firebase-admin/firestore";
 
 // Initialize Firebase Admin using Application Default Credentials.
 // In Cloud Run the service account's ADC is used automatically.
@@ -30,7 +31,7 @@ app.get("/health", (_req, res) => {
 // POST /api/insights  — Gemini AI, gated on isPremium
 app.post("/api/insights", async (req, res) => {
   try {
-    const { prompt, token } = req.body;
+    const { profileName, logs, token } = req.body;
 
     if (!token) {
       return res.status(401).json({ error: "Unauthorized: No token provided" });
@@ -43,26 +44,17 @@ app.post("/api/insights", async (req, res) => {
       return res.status(401).json({ error: "Unauthorized: Invalid token" });
     }
 
-    // Fetch account profile via Firestore REST (user's own token — allowed by security rules)
+    // Verify premium status via Admin SDK (bypasses security rules — authoritative read)
     try {
-      const projectId = process.env.GOOGLE_CLOUD_PROJECT || "kidcare-17eba";
-      const firestoreUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/kidcare/documents/users/${decodedToken.uid}/account/profile`;
-      const profileRes = await fetch(firestoreUrl, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const db = getFirestore(admin.app(), "kidcare");
+      const profileDoc = await db.collection("users").doc(decodedToken.uid)
+        .collection("account").doc("profile").get();
 
-      if (!profileRes.ok) {
-        return res.status(403).json({ error: "Forbidden: Could not fetch account profile" });
-      }
-
-      const profileData = await profileRes.json();
-      const isPremium = profileData.fields?.isPremium?.booleanValue;
-
-      if (isPremium !== true) {
+      if (!profileDoc.exists || profileDoc.data()?.isPremium !== true) {
         return res.status(403).json({ error: "Forbidden: Premium account required" });
       }
     } catch (e) {
-      console.error("Firestore REST Error:", e);
+      console.error("Admin Firestore Error:", e);
       return res.status(500).json({ error: "Server Error: Could not verify account status" });
     }
 
@@ -70,6 +62,24 @@ app.post("/api/insights", async (req, res) => {
     if (!apiKey) {
       return res.status(500).json({ error: "Server Error: GEMINI_API_KEY not configured" });
     }
+
+    // Construct prompt server-side from raw log data (never trust client-supplied prompts)
+    const prompt = `
+You are a helpful family health assistant.
+Analyze the following sickness history for a child named ${String(profileName || 'Child').replace(/[^a-zA-Z0-9 ]/g, '').slice(0, 50)}.
+
+The data provided are days where symptoms or fever were recorded.
+
+Data:
+${JSON.stringify(Array.isArray(logs) ? logs.slice(0, 200) : [], null, 2)}
+
+Please provide:
+1. A brief summary of recent illnesses (look for consecutive days to identify episodes).
+2. Any patterns noticed (e.g., frequency, common symptoms).
+3. General wellness advice based on these patterns (disclaimer: not medical advice).
+
+Keep the tone supportive, encouraging and concise. Return the response in plain text with nice formatting (bullet points).
+`;
 
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({

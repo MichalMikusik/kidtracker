@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { AppState, DailyLog, Profile, AccountProfile } from './types';
 import { loadState, saveState, generateDemoData } from './services/storageService';
 import { auth, loginWithGoogle, logout, subscribeToData, saveToFirebase, getUserAccountProfile, saveUserAccountProfile } from './services/firebase';
+import { getHealthInsights } from './services/geminiService';
 import { User } from 'firebase/auth';
 import CalendarView from './components/CalendarView';
 import StatsView from './components/StatsView';
@@ -39,8 +40,16 @@ function App() {
 
   // 1. Handle Authentication & Data Sync
   useEffect(() => {
+    let unsubFirestore: (() => void) | null = null;
+
     const unsubscribe = auth.onAuthStateChanged(async (currentUser) => {
       setUser(currentUser);
+
+      // Clean up previous Firestore listener on auth change
+      if (unsubFirestore) {
+        unsubFirestore();
+        unsubFirestore = null;
+      }
       
       if (currentUser) {
         const accProfile = await getUserAccountProfile(currentUser);
@@ -50,21 +59,13 @@ function App() {
       }
       
       if (currentUser) {
-        // User just logged in. 
-        // 1. We have local data (state).
-        // 2. We subscribe to cloud.
-        // 3. Logic: If cloud is empty, upload local. If cloud has data, overwrite local (Sync Down).
-        
-        subscribeToData(
+        unsubFirestore = subscribeToData(
             currentUser, 
             (cloudData) => {
                 if (cloudData) {
-                    // Cloud has data, sync down
                     setState(cloudData);
                     saveState(cloudData);
                 } else {
-                    // Cloud is empty (New User or fresh login), upload current local guest data
-                    // We use the 'state' from closure, but better to use current loadState() to be safe
                     const currentLocal = loadState();
                     saveToFirebase(currentUser, currentLocal);
                 }
@@ -73,11 +74,12 @@ function App() {
                 console.error("Sync error:", error);
             }
         );
-      } 
-      // Note: If logged out (Guest), we simply rely on the useState initialization 
-      // and updateState calls which write to localStorage.
+      }
     });
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      if (unsubFirestore) unsubFirestore();
+    };
   }, []);
 
   // Helper to save state (updates local state immediately, then pushes to Firebase if logged in)

@@ -14,8 +14,11 @@ RUN npm ci --omit=dev && \
 # --- Final stage ---
 FROM node:22-alpine AS runner
 
-# Upgrade all Alpine system packages to pull in security fixes (zlib, etc.)
-RUN apk update && apk upgrade --no-cache && rm -rf /var/cache/apk/*
+# Upgrade Alpine packages (zlib etc.) and remove global npm/yarn/corepack
+# that bundle vulnerable transitive deps (tar, minimatch, glob, diff).
+# They are not needed at runtime — the app uses tsx from node_modules.
+RUN apk update && apk upgrade --no-cache && rm -rf /var/cache/apk/* && \
+    rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack /opt/yarn*
 
 WORKDIR /app
 
