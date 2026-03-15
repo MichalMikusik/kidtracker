@@ -32,8 +32,9 @@
   },
   "overrides": {
     "minimatch": ">=9.0.7",
-    "glob": ">=10.4.6",
+    "glob": ">=11.0.0",
     "fast-xml-parser": ">=5.5.5",
-    "@tootallnate/once": ">=3.0.1"
+    "@tootallnate/once": ">=3.0.1",
+    "node-domexception": ">=2.0.0"
   }
 }

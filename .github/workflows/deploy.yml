@@ -141,6 +141,8 @@ jobs:
           VITE_API_BASE_URL: ${{ needs.deploy-backend.outputs.cloud_run_url }}
 
       - name: Deploy to Firebase Hosting + Firestore Rules
-        run: npx firebase-tools@latest deploy --only hosting,firestore:rules --project ${{ env.PROJECT_ID }} --non-interactive
+        run: |
+          npx firebase-tools@latest deploy --only hosting --project ${{ env.PROJECT_ID }} --non-interactive
+          npx firebase-tools@latest deploy --only firestore:rules --project ${{ env.PROJECT_ID }} --database kidcare --non-interactive
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
