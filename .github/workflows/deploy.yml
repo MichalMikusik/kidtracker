@@ -10,7 +10,6 @@ on:
     paths-ignore:
       - 'terraform/**'
       - 'firestore.rules'
-      - 'firebase.json'
       - '.github/workflows/infra.yml'
       - 'docs/**'
       - '*.md'
