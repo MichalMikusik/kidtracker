@@ -9,14 +9,16 @@ variable "region" {
 }
 
 variable "image_tag" {
-  description = "Docker image tag — set to git SHA in CI/CD"
+  description = "Docker image tag — set to git SHA in CI/CD. Use 'latest' for infra-only runs."
   type        = string
+  default     = "latest"
 }
 
 variable "gemini_api_key" {
   description = "Google Gemini API key — passed from GitHub Actions secret"
   type        = string
   sensitive   = true
+  default     = ""
 }
 
 variable "allowed_origin" {

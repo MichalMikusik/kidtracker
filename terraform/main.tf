@@ -17,11 +17,10 @@ provider "google" {
   region  = var.region
 }
 
-resource "google_artifact_registry_repository" "kidtracker" {
-  location      = var.region
-  repository_id = "kidtracker"
-  description   = "KidTracker API container images"
-  format        = "DOCKER"
+# Ensure required APIs are enabled
+resource "google_project_service" "firebaserules" {
+  service            = "firebaserules.googleapis.com"
+  disable_on_destroy = false
 }
 
 resource "google_service_account" "cloud_run_sa" {
@@ -92,13 +91,6 @@ resource "google_cloud_run_v2_service_iam_member" "public_invoker" {
   name     = google_cloud_run_v2_service.api.name
   role     = "roles/run.invoker"
   member   = "allUsers"
-}
-
-resource "google_artifact_registry_repository_iam_member" "github_push" {
-  location   = google_artifact_registry_repository.kidtracker.location
-  repository = google_artifact_registry_repository.kidtracker.name
-  role       = "roles/artifactregistry.writer"
-  member     = "serviceAccount:github-actions-sa@${var.project_id}.iam.gserviceaccount.com"
 }
 
 

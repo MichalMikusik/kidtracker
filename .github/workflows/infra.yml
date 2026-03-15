@@ -1,0 +1,102 @@
+# KidTracker — Infrastructure: Terraform + Firestore rules
+# Runs on changes to terraform/, firestore.rules, or manually.
+# Does NOT build or deploy the app.
+
+name: Infrastructure
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'terraform/**'
+      - 'firestore.rules'
+      - 'firebase.json'
+      - '.github/workflows/infra.yml'
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: kidcare-17eba
+  REGION: europe-west1
+
+jobs:
+  terraform:
+    name: Terraform Apply
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: terraform
+
+      - name: Terraform Refresh
+        run: terraform refresh
+        working-directory: terraform
+
+      - name: Terraform Plan
+        run: terraform plan -out=tfplan
+        working-directory: terraform
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve tfplan
+        working-directory: terraform
+
+      - name: Deploy Firestore rules to kidcare database
+        run: |
+          ACCESS_TOKEN=$(gcloud auth print-access-token)
+
+          jq -n --arg content "$(cat firestore.rules)" \
+            '{source: {files: [{name: "firestore.rules", content: $content}]}}' > /tmp/ruleset.json
+
+          RULESET_RESPONSE=$(curl -sf -X POST \
+            "https://firebaserules.googleapis.com/v1/projects/${{ env.PROJECT_ID }}/rulesets" \
+            -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d @/tmp/ruleset.json)
+
+          RULESET_NAME=$(echo "$RULESET_RESPONSE" | jq -r '.name')
+          echo "Created ruleset: $RULESET_NAME"
+
+          if [ "$RULESET_NAME" = "null" ] || [ -z "$RULESET_NAME" ]; then
+            echo "ERROR: Failed to create ruleset"
+            echo "$RULESET_RESPONSE"
+            exit 1
+          fi
+
+          RELEASE_BODY=$(jq -n --arg name "projects/${{ env.PROJECT_ID }}/releases/cloud.firestore/kidcare" \
+            --arg ruleset "$RULESET_NAME" \
+            '{release: {name: $name, rulesetName: $ruleset}}')
+
+          curl -sf -X PATCH \
+            "https://firebaserules.googleapis.com/v1/projects/${{ env.PROJECT_ID }}/releases/cloud.firestore%2Fkidcare" \
+            -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "$RELEASE_BODY" \
+          || curl -sf -X POST \
+            "https://firebaserules.googleapis.com/v1/projects/${{ env.PROJECT_ID }}/releases" \
+            -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "$RELEASE_BODY"
+
+          echo "Firestore rules deployed to kidcare database"
