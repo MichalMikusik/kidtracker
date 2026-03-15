@@ -8,7 +8,7 @@ COPY package*.json ./
 # Install production deps, then remove npm's cache to drop vulnerable
 # transitive packages (minimatch, tar, glob, etc.) that ship inside npm
 # but are not needed at runtime.
-RUN npm ci --omit=dev && \
+RUN npm ci --omit=dev --loglevel=error --no-update-notifier && \
     rm -rf /usr/local/lib/node_modules/npm
 
 # --- Final stage ---

@@ -1,0 +1,28 @@
+[debug] [2026-03-15T21:07:08.893Z] ----------------------------------------------------------------------
+[debug] [2026-03-15T21:07:08.896Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\MichalMikušík\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy --only firestore:rules --project kidcare-17eba --non-interactive --debug
+[debug] [2026-03-15T21:07:08.896Z] CLI Version:   15.8.0
+[debug] [2026-03-15T21:07:08.896Z] Platform:      win32
+[debug] [2026-03-15T21:07:08.896Z] Node Version:  v24.11.1
+[debug] [2026-03-15T21:07:08.896Z] Time:          Sun Mar 15 2026 22:07:08 GMT+0100 (stredoeurópsky štandardný čas)
+[debug] [2026-03-15T21:07:08.896Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-03-15T21:07:10.167Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-03-15T21:07:10.168Z] > authorizing via signed-in user (diego.crew@gmail.com)
+[debug] [2026-03-15T21:07:10.168Z] [iam] checking project kidcare-17eba for permissions ["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]
+[debug] [2026-03-15T21:07:10.169Z] Checked if tokens are valid: true, expires at: 1773611739671
+[debug] [2026-03-15T21:07:10.170Z] Checked if tokens are valid: true, expires at: 1773611739671
+[debug] [2026-03-15T21:07:10.170Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/kidcare-17eba:testIamPermissions [none]
+[debug] [2026-03-15T21:07:10.170Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/kidcare-17eba:testIamPermissions  x-goog-user-project=kidcare-17eba
+[debug] [2026-03-15T21:07:10.171Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/kidcare-17eba:testIamPermissions {"permissions":["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]}
+[debug] [2026-03-15T21:07:10.947Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/kidcare-17eba:testIamPermissions 200
+[debug] [2026-03-15T21:07:10.947Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/kidcare-17eba:testIamPermissions {"permissions":["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]}
+[info] 
+[info] === Deploying to 'kidcare-17eba'...
+[info] 
+[info] i  deploying firestore 
+[info] i  firestore: ensuring required API firestore.googleapis.com is enabled... 
+[info] i  firestore: ensuring required API firestore.googleapis.com is enabled... 
+[info] 
+[info] +  Deploy complete! 
+[info] 
+[info] Project Console: https://console.firebase.google.com/project/kidcare-17eba/overview
