@@ -1,15 +1,23 @@
-/* 
-  Global styles for KidCare Tracker.
-  Most styling is handled by Tailwind CSS (loaded via CDN in index.html).
-*/
+@import "tailwindcss";
 
 /* Smooth font rendering */
 body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior-y: none;
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* PWA safe-area support */
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Hide scrollbar */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

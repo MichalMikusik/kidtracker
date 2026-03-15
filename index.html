@@ -16,30 +16,12 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="/icons/icon-192.png">
 
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-      /* Hide scrollbar for Chrome, Safari and Opera */
-      .no-scrollbar::-webkit-scrollbar {
-        display: none;
-      }
-      /* Hide scrollbar for IE, Edge and Firefox */
-      .no-scrollbar {
-        -ms-overflow-style: none;  /* IE and Edge */
-        scrollbar-width: none;  /* Firefox */
-      }
-      /* Prevent pull-to-refresh on mobile */
-      body {
-        overscroll-behavior-y: none;
-        padding-bottom: env(safe-area-inset-bottom);
-      }
-    </style>
-
-<link rel="stylesheet" href="/index.css">
+    <link rel="stylesheet" href="/index.css">
 </head>
   <body class="bg-slate-50 text-slate-900 select-none">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
-    <script>
+    <script type="module">
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js');
