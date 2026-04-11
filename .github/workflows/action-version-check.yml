@@ -1,0 +1,66 @@
+name: Action Version Staleness Check
+
+# Runs every Monday at 08:00 UTC and on manual trigger.
+# Scans all .github/workflows/ files for `uses: owner/repo@version` references,
+# compares each against the latest GitHub release/tag, detects cross-pipeline
+# version inconsistencies, and opens an issue summarising findings.
+
+on:
+  schedule:
+    - cron: '0 8 * * 1'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check-versions:
+    name: Check Action Version Staleness
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      # -----------------------------------------------------------------------
+      # Parse all workflow files, detect version inconsistencies, and query
+      # the GitHub API for the latest release/tag of every action used.
+      # Outputs:
+      #   has_findings  - "true" if any outdated or inconsistent entries exist
+      #   report        - Markdown table ready for embedding in an issue body
+      # -----------------------------------------------------------------------
+      - name: Extract and compare action versions
+        id: compare
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: python3 .github/scripts/check_action_versions.py
+
+      # -----------------------------------------------------------------------
+      # Close any previously open staleness issue and create a fresh one so the
+      # team always has exactly one open tracking issue.
+      # -----------------------------------------------------------------------
+      - name: Create or refresh GitHub issue
+        if: steps.compare.outputs.has_findings == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TITLE="[maintenance] Action version staleness — $(date +'%Y-%m-%d')"
+
+          PREV=$(gh issue list \
+            --search "[maintenance] Action version staleness" \
+            --state open \
+            --json number \
+            --jq '.[0].number' 2>/dev/null || true)
+          if [ -n "$PREV" ] && [ "$PREV" != "null" ] && [ "$PREV" != "" ]; then
+            gh issue close "$PREV" \
+              --comment "Superseded by run ${{ github.run_id }}. A new issue has been created."
+          fi
+
+          gh issue create --title "$TITLE" --body-file issue_body.md
+
+      - name: Report no findings
+        if: steps.compare.outputs.has_findings != 'true'
+        run: |
+          echo "All actions are up to date and consistent across pipelines." >> $GITHUB_STEP_SUMMARY
