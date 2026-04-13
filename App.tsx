@@ -100,7 +100,11 @@ function App() {
   };
 
   const handleLogin = async () => {
-      await loginWithGoogle();
+      try {
+          await loginWithGoogle();
+      } catch (e: any) {
+          console.error("handleLogin error:", e);
+      }
   }
 
   // --- Main App Logic ---

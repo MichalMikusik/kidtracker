@@ -33,6 +33,11 @@ const firebaseConfig = {
 };
 // --- CONFIGURATION END ---
 
+// Validate config — catches missing build-time env vars early
+if (!firebaseConfig.apiKey || firebaseConfig.apiKey === 'undefined') {
+  console.error("Firebase config is missing. VITE_FIREBASE_* env vars were not set at build time.");
+}
+
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 export const analytics = getAnalytics(app);
@@ -42,7 +47,19 @@ export const db = getFirestore(app, "kidcare");
 const GOOGLE_PROVIDER = new GoogleAuthProvider();
 
 export const loginWithGoogle = async () => {
-  await signInWithRedirect(auth, GOOGLE_PROVIDER);
+  try {
+    await signInWithRedirect(auth, GOOGLE_PROVIDER);
+  } catch (error: any) {
+    console.error("signInWithRedirect failed", error);
+    if (error.code === 'auth/invalid-api-key' || error.code === 'auth/api-key-not-valid') {
+      alert("Login failed: Firebase API key is invalid. The app may not have been built with the correct configuration.");
+    } else if (error.code === 'auth/unauthorized-domain') {
+      alert("Login failed: This domain is not authorized in Firebase Console > Authentication > Settings > Authorized Domains.");
+    } else {
+      alert(`Login failed: ${error.message}`);
+    }
+    throw error;
+  }
 };
 
 // Call this on every page load to finalize the redirect sign-in flow.
