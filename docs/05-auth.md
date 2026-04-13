@@ -11,7 +11,9 @@
 
 ### Signed-In Mode (Google)
 
-- Users sign in via `signInWithPopup` using Firebase's `GoogleAuthProvider`.
+- Users sign in via `signInWithRedirect` using Firebase's `GoogleAuthProvider`.
+  - `signInWithPopup` was deprecated in favour of redirect due to Google enforcing `COOP: same-origin` on `accounts.google.com` (April 2026), which breaks the popup postMessage channel.
+- On page load, `handleRedirectResult()` is called once to finalise the redirect flow before `onAuthStateChanged` fires.
 - On successful login:
   1. `AccountProfile` is fetched (or created with defaults) from Firestore.
   2. The app subscribes to the user's `trackerState` document in Firestore.

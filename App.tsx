@@ -46,6 +46,10 @@ function App() {
   // 1. Handle Authentication & Data Sync
   useEffect(() => {
     let unsubFirestore: (() => void) | null = null;
+    // Tracks whether we've received the first auth state — prevents wiping
+    // localStorage on the initial null state that fires before Firebase
+    // determines the session (e.g. after signInWithRedirect page reload).
+    let authInitialized = false;
 
     const unsubscribe = auth.onAuthStateChanged(async (currentUser) => {
       setUser(currentUser);
@@ -57,13 +61,18 @@ function App() {
       }
       
       if (currentUser) {
+        authInitialized = true;
         const accProfile = await getUserAccountProfile(currentUser);
         setAccountProfile(accProfile);
       } else {
-        // Logged out: reset to clean guest state
         setAccountProfile(null);
-        setState(DEFAULT_STATE);
-        saveState(DEFAULT_STATE);
+        // Only wipe local data on an explicit logout, not on the transient
+        // null fired during initial page load before the session is resolved.
+        if (authInitialized) {
+          setState(DEFAULT_STATE);
+          saveState(DEFAULT_STATE);
+        }
+        authInitialized = true;
       }
       
       if (currentUser) {

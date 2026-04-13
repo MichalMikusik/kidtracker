@@ -9,7 +9,9 @@
 
 ## Environment Variables
 
-Create a `.env.local` file in the project root:
+Create a `.env.local` file in the project root (copy from `.env.example`).
+
+> **CI/CD:** All `VITE_FIREBASE_*` variables must also be added as GitHub Actions secrets (repo Settings → Secrets and variables → Actions). They are injected into the Vite build at deploy time. Missing secrets will produce a bundle with `undefined` Firebase config and silent auth failures.
 
 ```env
 # Firebase (client SDK — used by Vite, must be VITE_ prefixed)

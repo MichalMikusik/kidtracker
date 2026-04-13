@@ -3,8 +3,7 @@ import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
 import { 
   getAuth, 
-  signInWithRedirect,
-  getRedirectResult,
+  signInWithPopup,
   GoogleAuthProvider, 
   onAuthStateChanged,
   User,
@@ -48,9 +47,12 @@ const GOOGLE_PROVIDER = new GoogleAuthProvider();
 
 export const loginWithGoogle = async () => {
   try {
-    await signInWithRedirect(auth, GOOGLE_PROVIDER);
+    await signInWithPopup(auth, GOOGLE_PROVIDER);
   } catch (error: any) {
-    console.error("signInWithRedirect failed", error);
+    if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
+      return; // User dismissed — not an error
+    }
+    console.error("signInWithPopup failed", error);
     if (error.code === 'auth/invalid-api-key' || error.code === 'auth/api-key-not-valid') {
       alert("Login failed: Firebase API key is invalid. The app may not have been built with the correct configuration.");
     } else if (error.code === 'auth/unauthorized-domain') {
@@ -62,24 +64,8 @@ export const loginWithGoogle = async () => {
   }
 };
 
-// Call this on every page load to finalize the redirect sign-in flow.
-// Returns true if a redirect result was processed, false otherwise.
-export const handleRedirectResult = async (): Promise<void> => {
-  try {
-    await getRedirectResult(auth);
-  } catch (error: any) {
-    console.error("Login failed", error);
-    if (error.code === 'auth/unauthorized-domain') {
-      alert("Login failed: This domain is not authorized. Please add it to your Firebase Console > Authentication > Settings > Authorized Domains.");
-    } else if (error.code === 'auth/api-key-not-valid') {
-      alert("Login failed: The Firebase API key is invalid. Please check your configuration.");
-    } else if (error.message?.includes("The requested action is invalid")) {
-      alert("Login failed: The Firebase project configuration appears to be invalid or the project has been deleted.");
-    } else {
-      throw error;
-    }
-  }
-};
+// No-op kept for compatibility — redirect flow removed in favour of popup.
+export const handleRedirectResult = async (): Promise<void> => {};
 
 export const logout = async () => {
   await signOut(auth);
