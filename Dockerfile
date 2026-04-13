@@ -8,7 +8,9 @@ COPY package*.json ./
 # Install production deps, then remove npm's cache to drop vulnerable
 # transitive packages (minimatch, tar, glob, etc.) that ship inside npm
 # but are not needed at runtime.
-RUN npm ci --omit=dev --loglevel=error --no-update-notifier && \
+# Using npm install instead of npm ci to handle platform-specific optional
+# dependencies that are absent from a Windows-generated lock file.
+RUN npm install --omit=dev --loglevel=error --no-update-notifier --no-audit --no-fund && \
     rm -rf /usr/local/lib/node_modules/npm
 
 # --- Final stage ---
