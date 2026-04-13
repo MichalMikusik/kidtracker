@@ -126,7 +126,7 @@ const LogSheet: React.FC<LogSheetProps> = ({ date, existingLog, onSave, onClose,
       <div className="absolute inset-0 bg-black/20 pointer-events-auto transition-opacity" onClick={onClose} />
       
       {/* Sheet */}
-      <div className="bg-white w-full max-w-md rounded-t-3xl shadow-2xl pointer-events-auto transform transition-transform duration-300 max-h-[90vh] overflow-y-auto flex flex-col">
+      <div className="relative z-10 bg-white w-full max-w-md rounded-t-3xl shadow-2xl pointer-events-auto transform transition-transform duration-300 max-h-[90vh] overflow-y-auto flex flex-col">
         
         {/* Handle */}
         <div className="pt-3 pb-1 flex justify-center sticky top-0 bg-white z-10">
