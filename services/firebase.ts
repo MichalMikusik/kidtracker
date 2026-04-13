@@ -3,7 +3,8 @@ import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
 import { 
   getAuth, 
-  signInWithPopup, 
+  signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider, 
   onAuthStateChanged,
   User,
@@ -41,23 +42,23 @@ export const db = getFirestore(app, "kidcare");
 const GOOGLE_PROVIDER = new GoogleAuthProvider();
 
 export const loginWithGoogle = async () => {
+  await signInWithRedirect(auth, GOOGLE_PROVIDER);
+};
+
+// Call this on every page load to finalize the redirect sign-in flow.
+// Returns true if a redirect result was processed, false otherwise.
+export const handleRedirectResult = async (): Promise<void> => {
   try {
-    await signInWithPopup(auth, GOOGLE_PROVIDER);
+    await getRedirectResult(auth);
   } catch (error: any) {
-    if (error.code === 'auth/popup-closed-by-user') {
-      console.log("Login canceled by user");
-      return; // Exit gracefully
-    }
-    
     console.error("Login failed", error);
     if (error.code === 'auth/unauthorized-domain') {
       alert("Login failed: This domain is not authorized. Please add it to your Firebase Console > Authentication > Settings > Authorized Domains.");
     } else if (error.code === 'auth/api-key-not-valid') {
       alert("Login failed: The Firebase API key is invalid. Please check your configuration.");
-    } else if (error.message.includes("The requested action is invalid")) {
-       alert("Login failed: The Firebase project configuration appears to be invalid or the project has been deleted. Please update services/firebase.ts with your own valid Firebase configuration.");
+    } else if (error.message?.includes("The requested action is invalid")) {
+      alert("Login failed: The Firebase project configuration appears to be invalid or the project has been deleted.");
     } else {
-      // Re-throw other errors to be handled by the caller (e.g. popup closed)
       throw error;
     }
   }

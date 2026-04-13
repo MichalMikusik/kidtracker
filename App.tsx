@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AppState, DailyLog, Profile, AccountProfile } from './types';
 import { loadState, saveState, generateDemoData, DEFAULT_STATE } from './services/storageService';
-import { auth, loginWithGoogle, logout, subscribeToData, saveToFirebase, getUserAccountProfile, saveUserAccountProfile } from './services/firebase';
+import { auth, loginWithGoogle, logout, subscribeToData, saveToFirebase, getUserAccountProfile, saveUserAccountProfile, handleRedirectResult } from './services/firebase';
 import { getHealthInsights } from './services/geminiService';
 import { User } from 'firebase/auth';
 import CalendarView from './components/CalendarView';
@@ -37,6 +37,11 @@ function App() {
   // AI State
   const [aiInsight, setAiInsight] = useState<string>('');
   const [loadingAi, setLoadingAi] = useState(false);
+
+  // 0. Process redirect result from Google sign-in (runs once on page load)
+  useEffect(() => {
+    handleRedirectResult();
+  }, []);
 
   // 1. Handle Authentication & Data Sync
   useEffect(() => {
@@ -95,13 +100,7 @@ function App() {
   };
 
   const handleLogin = async () => {
-      try {
-          await loginWithGoogle();
-      } catch (e: any) {
-          if (e?.code !== 'auth/popup-closed-by-user') {
-            alert("Could not sign in.");
-          }
-      }
+      await loginWithGoogle();
   }
 
   // --- Main App Logic ---
