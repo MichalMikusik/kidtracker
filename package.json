@@ -37,8 +37,11 @@
   "overrides": {
     "minimatch": ">=9.0.7",
     "glob": ">=11.0.0",
-    "fast-xml-parser": ">=5.5.11",
+    "fast-xml-parser": ">=5.5.12",
+    "fast-xml-builder": ">=1.1.7",
     "@tootallnate/once": ">=3.0.1",
-    "node-domexception": ">=2.0.0"
+    "node-domexception": ">=2.0.0",
+    "protobufjs": ">=7.5.5",
+    "@protobufjs/utf8": ">=1.1.1"
   }
 }
